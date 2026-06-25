@@ -56,14 +56,12 @@ public interface Constants {
         static final String ERROR_MESSAGE = "Unable to fetch the details. Please try again later!";
         static final String FIELD_PORTAL_MISSING = "Field Portal Missing";
         static final String FIELD_SUBTYPE_MISSING = "Field Subtype Missing";
-        static final String CHECK_REQUEST_PARAMS = "Check your request paramaters.";
-        static final String FIELD_CRIETERIA_MISSING = "Field Subtype Missing";
-        static final String FIELD_DATA_MISSING = "Field Data Missing";
+        static final String FIELD_CRIETERIA_MISSING = "Field Criteria Missing";
         static final String FIELD_ROOTORG_MISSING = "Field RootOrg Missing";
         static final String FIELD_ROLE_MISSING = "Field Role Missing";
         static final String FIELD_TYPE_MISSING = "Field type is missing";
         static final String INVALID_CLIENT_VERSION = "Invalid client version";
-        static final String FIELD_CLIENTVERSION_MISSING = "Field type is missing";
+        static final String FIELD_CLIENTVERSION_MISSING = "Field clientVersion is missing";
 
 
     }
@@ -113,4 +111,7 @@ public interface Constants {
 
     public static final String API_REDIS_DELETE = "api.redis.delete";
     public  static final String ERROR_REDIS_KEY_NOTFOUND = "No Keys found, Redis cache is empty";
+    public static final String X_AUTH_USER_ORG_ID = "x-authenticated-user-orgid";
+    public static final String X_AUTH_USER_ROLES = "x-authenticated-user-roles";
+    ;
 }
