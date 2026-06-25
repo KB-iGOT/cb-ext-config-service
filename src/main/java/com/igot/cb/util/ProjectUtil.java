@@ -18,7 +18,9 @@ public class ProjectUtil {
 
     public static ApiResponse returnErrorMsg(String error, HttpStatus type, ApiResponse response, String status) {
         response.setResponseCode(type);
-      //  response.getParams().setErr(error);
+        response.getParams().setErr(error);
+        response.getParams().setErrMsg(error);
+        response.getParams().setStatus(status);
         response.setMessage(status);
         return response;
     }

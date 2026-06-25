@@ -7,20 +7,27 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface FormConfigurationRepository extends JpaRepository<FormConfigurationEntity,Long> {
-    @Query("""
-           SELECT w
-           FROM FormConfigurationEntity w
-           WHERE w.type = :type
-             AND w.subtype = :subtype
-             AND w.portal = :portal
-           """)
-    Optional<FormConfigurationEntity> getformConfigData(
+   @Query(value = """
+    SELECT *
+    FROM form_configuration
+    WHERE type = :type
+      AND subtype = :subtype
+      AND portal = :portal
+      AND criteria ->> 'rootOrg' = :rootOrg
+      AND criteria ->> 'role' IN (:roles)
+    LIMIT 1
+    """, nativeQuery = true)
+    Optional<FormConfigurationEntity> getFormConfigDataByCriteria(
             @Param("type") String type,
             @Param("subtype") String subtype,
-            @Param("portal") String portal);
+            @Param("portal") String portal,
+            @Param("rootOrg") String rootOrg,
+            @Param("roles") List<String> roles
+    );
 
 }
