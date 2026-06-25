@@ -39,7 +39,7 @@ public class ConfigurationController {
     return new ResponseEntity<>(response, response.getResponseCode());
   }
 
-  @PostMapping("/admin/read")
+  @PostMapping("/admin/read/{userId}")
   public ResponseEntity<ApiResponse> readFormConfigForAdmin(
           @RequestBody Map<String, Object> request,
           @PathVariable("userId") String  authTokenOrUserId,

@@ -234,6 +234,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             JsonNode criteriaNode = objectMapper.valueToTree(requestData.get(Constants.CRITERIA));
 
             originalData.setData(dataNode);
+            originalData.setType(type);
             originalData.setPortal(portal);
             originalData.setSubtype(subtype);
             originalData.setClientVersion(Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
