@@ -127,4 +127,17 @@ class CacheServiceTest {
 
         assertNull(response);
     }
+
+    @Test
+    void deleteCacheByPattern_shouldDeleteMatchingKeys() {
+        String pattern = "testPattern*";
+        java.util.Set<String> mockKeys = java.util.Set.of("testPattern1", "testPattern2");
+
+        when(redisTemplate.keys(pattern)).thenReturn(mockKeys);
+
+        cacheService.deleteCacheByPattern(pattern);
+
+        verify(redisTemplate).keys(pattern);
+        verify(redisTemplate).delete(mockKeys);
+    }
 }

@@ -162,12 +162,11 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
-    void readFormConfig_cacheHit() throws Exception {
-
+    void readFormConfig_cacheHit_specificOrg() throws Exception {
         when(accessTokenValidator.fetchUserDetailsFromToken("token"))
                 .thenReturn(userDetails);
 
-        when(validationService.validateForm(anyMap(),anyString()))
+        when(validationService.validateForm(anyMap(), anyString()))
                 .thenReturn(Constants.SUCCESSFUL);
 
         when(cacheService.getCache(anyString()))
@@ -183,34 +182,160 @@ class FormsConfigurationServiceImplTest {
                 null,
                 false);
 
-        assertEquals(HttpStatus.OK,response.getResponseCode());
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(cacheService, times(1)).getCache(anyString());
+        verify(repository, never()).getFormConfigDataByCriteria(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void readFormConfig_cacheMiss_dbHit_specificOrg() throws Exception {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token"))
+                .thenReturn(userDetails);
+
+        when(validationService.validateForm(anyMap(), anyString()))
+                .thenReturn(Constants.SUCCESSFUL);
+
+        when(cacheService.getCache(anyString()))
+                .thenReturn(null);
+
+        FormConfigurationEntity entity = new FormConfigurationEntity();
+        entity.setType("page-web");
+        entity.setSubtype("player");
+        entity.setPortal("mobile");
+        entity.setData(mock(com.fasterxml.jackson.databind.JsonNode.class));
+
+        when(repository.getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("org1"), any()))
+                .thenReturn(Optional.of(entity));
+
+        when(objectMapper.convertValue(any(), eq(Map.class)))
+                .thenReturn(new HashMap<>());
+
+        ApiResponse response = service.readFormConfig(
+                getRequest(),
+                "token",
+                null,
+                null,
+                false);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(cacheService).putCache(anyString(), any());
+    }
+
+    @Test
+    void readFormConfig_cacheMiss_dbMiss_fallbackCacheHit() throws Exception {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token"))
+                .thenReturn(userDetails);
+
+        when(validationService.validateForm(anyMap(), anyString()))
+                .thenReturn(Constants.SUCCESSFUL);
+
+        when(cacheService.getCache(anyString()))
+                .thenReturn(null)
+                .thenReturn("{}");
+
+        when(repository.getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("org1"), any()))
+                .thenReturn(Optional.empty());
+
+        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
+                .thenReturn(new HashMap<>());
+
+        ApiResponse response = service.readFormConfig(
+                getRequest(),
+                "token",
+                null,
+                null,
+                false);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(repository, times(1)).getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("org1"), any());
+        verify(repository, never()).getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("*"), any());
+    }
+
+    @Test
+    void readFormConfig_cacheMiss_dbMiss_fallbackCacheMiss_fallbackDbHit() throws Exception {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token"))
+                .thenReturn(userDetails);
+
+        when(validationService.validateForm(anyMap(), anyString()))
+                .thenReturn(Constants.SUCCESSFUL);
+
+        when(cacheService.getCache(anyString()))
+                .thenReturn(null)
+                .thenReturn(null);
+
+        when(repository.getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("org1"), any()))
+                .thenReturn(Optional.empty());
+
+        FormConfigurationEntity fallbackEntity = new FormConfigurationEntity();
+        fallbackEntity.setType("page-web");
+        fallbackEntity.setSubtype("player");
+        fallbackEntity.setPortal("mobile");
+        fallbackEntity.setData(mock(com.fasterxml.jackson.databind.JsonNode.class));
+
+        when(repository.getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("*"), any()))
+                .thenReturn(Optional.of(fallbackEntity));
+
+        when(objectMapper.convertValue(any(), eq(Map.class)))
+                .thenReturn(new HashMap<>());
+
+        ApiResponse response = service.readFormConfig(
+                getRequest(),
+                "token",
+                null,
+                null,
+                false);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(cacheService).putCache(anyString(), any());
+    }
+
+    @Test
+    void readFormConfig_admin_noFallback() throws Exception {
+        when(validationService.validateForm(anyMap(), anyString()))
+                .thenReturn(Constants.SUCCESSFUL);
+
+        when(cacheService.getCache(anyString()))
+                .thenReturn(null);
+
+        when(repository.getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("org1"), any()))
+                .thenReturn(Optional.empty());
+
+        ApiResponse response = service.readFormConfig(
+                getRequest(),
+                "admin1",
+                "org1",
+                List.of("MDO_ADMIN"),
+                true);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+        verify(repository, times(1)).getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("org1"), any());
+        verify(repository, never()).getFormConfigDataByCriteria(eq("page-web"), eq("player"), eq("mobile"), eq("*"), any());
     }
 
     @Test
     void updateFormConfig_success() {
-
         FormConfigurationEntity entity = new FormConfigurationEntity();
 
         when(accessTokenValidator.fetchUserDetailsFromToken("token"))
                 .thenReturn(userDetails);
 
-        when(validationService.validateForm(anyMap(),anyString()))
+        when(validationService.validateForm(anyMap(), anyString()))
                 .thenReturn(Constants.SUCCESSFUL);
 
-        when(repository.getFormConfigDataByCriteria(any(),any(),any(),any(),any()))
+        when(repository.getFormConfigDataByCriteria(any(), any(), any(), any(), any()))
                 .thenReturn(Optional.of(entity));
 
         when(objectMapper.valueToTree(any()))
                 .thenReturn(mock(com.fasterxml.jackson.databind.JsonNode.class));
 
-        when(objectMapper.convertValue(any(),eq(Map.class)))
+        when(objectMapper.convertValue(any(), eq(Map.class)))
                 .thenReturn(new HashMap<>());
 
-        ApiResponse response = service.updateFormConfig(getRequest(),"token");
+        ApiResponse response = service.updateFormConfig(getRequest(), "token");
 
-        assertEquals(HttpStatus.OK,response.getResponseCode());
-
+        assertEquals(HttpStatus.OK, response.getResponseCode());
         verify(repository).save(any(FormConfigurationEntity.class));
+        verify(cacheService, times(2)).deleteCacheByPattern(anyString());
     }
 }
 

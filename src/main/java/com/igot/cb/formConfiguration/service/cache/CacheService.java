@@ -12,6 +12,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -64,5 +65,17 @@ public class CacheService {
 
     public boolean deleteCache(String key) {
         return redisTemplate.delete(key);
+    }
+
+    public void deleteCacheByPattern(String pattern) {
+        try {
+            Set<String> keys = redisTemplate.keys(pattern);
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+                log.info("Deleted {} keys matching pattern: {}", keys.size(), pattern);
+            }
+        } catch (Exception e) {
+            log.error("Error while deleting keys by pattern {}: {}", pattern, e.getMessage());
+        }
     }
 }
