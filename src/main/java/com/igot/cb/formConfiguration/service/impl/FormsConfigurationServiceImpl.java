@@ -159,10 +159,13 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             String portal = requestData.get(Constants.PORTAL).toString();
             userRoles = userDetails.getUserRoles();
             userOrg = userDetails.getOrg();
+            System.out.println("print userOrg" +userOrg);
+            System.out.println(Boolean.parseBoolean("print userRoles" + ObjectUtils.isNotEmpty(userRoles)) ? userRoles.toString():null);
 
             Optional<FormConfigurationEntity> formConfigurationEntity = Optional.empty();
 
             if (isAdmin) {
+                log.info("FormsConfigurationServiceImpl::readFormConfig: AdminUser");
                 String cacheKey = getCacheKey(type, subtype, portal, userOrg, userRoles);
                 String cachedData = cacheService.getCache(cacheKey);
                 if (cachedData != null) {
@@ -194,6 +197,8 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                     return response;
                 }
             } else {
+
+                log.info("FormsConfigurationServiceImpl::readFormConfig: Public/volunteer user");
                 // Rule engine concept:
                 // Step 1: Check cache for specific userOrg
                 String cacheKey = getCacheKey(type, subtype, portal, userOrg, userRoles);
