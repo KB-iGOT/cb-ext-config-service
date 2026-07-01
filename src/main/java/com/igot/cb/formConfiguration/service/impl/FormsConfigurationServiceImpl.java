@@ -163,12 +163,6 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             if (isAdmin) {
                 log.info("FormsConfigurationServiceImpl::readFormConfig: AdminUser");
                 Map<String, Object> criteria = (Map<String, Object>) requestData.get(Constants.CRITERIA);
-                if (ObjectUtils.isEmpty(criteria)
-                        || ObjectUtils.isEmpty(criteria.get(Constants.ROOTORG))
-                        || ObjectUtils.isEmpty(criteria.get(Constants.ROLE))) {
-                    ProjectUtil.returnErrorMsg(Constants.ResponseMessages.FIELD_CRIETERIA_MISSING, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
-                    return response;
-                }
                 String criteriaOrg = criteria.get(Constants.ROOTORG).toString();
                 String criteriaRole = criteria.get(Constants.ROLE).toString();
 
@@ -210,8 +204,6 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 userOrg = userDetails.getOrg();
 
                 log.info("FormsConfigurationServiceImpl::readFormConfig: Public/volunteer user");
-                userRoles = userDetails.getUserRoles();
-                userOrg = userDetails.getOrg();
 
                 // Step 1: Check cache for userRole + userOrgId (Volunteer case).
                 if (ObjectUtils.isNotEmpty(userRoles)) {
