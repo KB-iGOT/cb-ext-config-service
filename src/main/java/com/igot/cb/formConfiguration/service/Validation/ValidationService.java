@@ -74,6 +74,11 @@ public class ValidationService {
                }
 
         }
+        if (Constants.Parameters.READ.equalsIgnoreCase(operation) ) {
+            if(ObjectUtils.isNotEmpty(requestObject.get(Constants.CRITERIA)) || ObjectUtils.isNotEmpty(requestObject.get(Constants.DATA)) ){
+                validationMsg = Constants.ResponseMessages.BAD_REQUEST;
+            }
+        }
 
 
         if (ObjectUtils.isEmpty(requestObject.get(Constants.CLIENT_VERSION)) || Objects.isNull(requestObject.get(Constants.CLIENT_VERSION))) {
