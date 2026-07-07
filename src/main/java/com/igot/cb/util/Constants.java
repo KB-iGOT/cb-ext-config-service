@@ -63,6 +63,7 @@ public interface Constants {
         static final String INVALID_CLIENT_VERSION = "Invalid client version";
         static final String FIELD_CLIENTVERSION_MISSING = "Field clientVersion is missing";
 
+        static final String BAD_REQUEST = "Bad Request";
 
     }
 
