@@ -114,7 +114,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             cacheService.deleteCacheByPattern(pattern);
 
             // Cache result for future request under partitioned key
-            String cacheKey = getCacheKey(configurationEntity.getType(), configurationEntity.getSubtype(), configurationEntity.getPortal(), criteriaOrg, criteriaRole);
+            String cacheKey = getCacheKey(configurationEntity.getType(), configurationEntity.getSubtype(), configurationEntity.getPortal(), criteriaOrg, criteriaRole, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
             cacheService.putCache(cacheKey, result);
 
         } catch (Exception e) {
@@ -166,7 +166,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 String criteriaOrg = criteria.get(Constants.ROOTORG).toString();
                 String criteriaRole = criteria.get(Constants.ROLE).toString();
 
-                String cacheKey = getCacheKey(type, subtype, portal, criteriaOrg, criteriaRole);
+                String cacheKey = getCacheKey(type, subtype, portal, criteriaOrg, criteriaRole, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
                 String cachedData = cacheService.getCache(cacheKey);
                 if (cachedData != null) {
                     Map<String, Object> formConfig = objectMapper.readValue(
@@ -185,7 +185,8 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                         subtype,
                         portal,
                         criteriaOrg,
-                        Collections.singletonList(criteriaRole)
+                        Collections.singletonList(criteriaRole),
+                        Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString())
                 );
                 if (formConfigurationEntity.isPresent()) {
                     Map<String, Object> result = buildResult(formConfigurationEntity.get());
@@ -208,7 +209,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 // Step 1: Check cache for userRole + userOrgId (Volunteer case).
                 if (ObjectUtils.isNotEmpty(userRoles)) {
                     for (String role : userRoles) {
-                        String roleOrgCacheKey = getCacheKey(type, subtype, portal, userOrg, role);
+                        String roleOrgCacheKey = getCacheKey(type, subtype, portal, userOrg, role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
                         String roleOrgCachedData = cacheService.getCache(roleOrgCacheKey);
                         if (roleOrgCachedData != null) {
                             Map<String, Object> formConfig = objectMapper.readValue(
@@ -225,7 +226,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 }
 
                 // Step 2: Query DB using userRole + userOrgId (Volunteer case).
-                formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(type, subtype, portal, userOrg, userRoles);
+                formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(type, subtype, portal, userOrg, userRoles, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
                 if (formConfigurationEntity.isPresent()) {
                     Map<String, Object> result = buildResult(formConfigurationEntity.get());
 
@@ -235,7 +236,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                     response.getParams().setStatus(Constants.SUCCESSFUL);
                     if (ObjectUtils.isNotEmpty(userRoles)) {
                         for (String role : userRoles) {
-                            cacheService.putCache(getCacheKey(type, subtype, portal, userOrg, role), result);
+                            cacheService.putCache(getCacheKey(type, subtype, portal, userOrg, role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString())), result);
                         }
                     }
                     return response;
@@ -244,7 +245,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 // Step 3: Check cache for userRole + '*' (Public case - fallback).
                 if (ObjectUtils.isNotEmpty(userRoles)) {
                     for (String role : userRoles) {
-                        String fallbackCacheKey = getCacheKey(type, subtype, portal, "*", role);
+                        String fallbackCacheKey = getCacheKey(type, subtype, portal, "*", role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
                         String fallbackCachedData = cacheService.getCache(fallbackCacheKey);
                         if (fallbackCachedData != null) {
                             Map<String, Object> formConfig = objectMapper.readValue(
@@ -261,7 +262,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 }
 
                 // Step 4: Query DB with userRole + '*' (Public case - fallback).
-                formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(type, subtype, portal, "*", userRoles);
+                formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(type, subtype, portal, "*", userRoles, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
                 if (formConfigurationEntity.isPresent()) {
                     Map<String, Object> result = buildResult(formConfigurationEntity.get());
 
@@ -271,7 +272,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                     response.getParams().setStatus(Constants.SUCCESSFUL);
                     if (ObjectUtils.isNotEmpty(userRoles)) {
                         for (String role : userRoles) {
-                            cacheService.putCache(getCacheKey(type, subtype, portal, "*", role), result);
+                            cacheService.putCache(getCacheKey(type, subtype, portal, "*", role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString())), result);
                         }
                     }
                     return response;
@@ -324,7 +325,8 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                     subtype,
                     portal,
                     criteriaOrg,
-                    Collections.singletonList(criteriaRole)
+                    Collections.singletonList(criteriaRole),
+                    Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString())
             );
             if (formConfigurationEntity.isEmpty()) {
                 ProjectUtil.returnErrorMsg("FormConfig Data not exist: " + type + Constants.DOT_SEPARATOR + subtype + Constants.DOT_SEPARATOR + portal, HttpStatus.NOT_FOUND, response, Constants.FAILED);
@@ -382,7 +384,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             }
 
             // Cache result for future request under the partitioned key
-            String cacheKey = getCacheKey(type, subtype, portal, criteriaOrg, criteriaRole);
+            String cacheKey = getCacheKey(type, subtype, portal, criteriaOrg, criteriaRole, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
             cacheService.putCache(cacheKey, result);
 
         } catch (Exception e) {
@@ -394,7 +396,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
     }
 
 
-    private String getCacheKey(String type, String subtype, String portal, String userOrg, String userRole) {
+    private String getCacheKey(String type, String subtype, String portal, String userOrg, String userRole, Double clientVersion) {
         StringBuilder sb = new StringBuilder();
         sb.append(Constants.FORM_CONFIG_RESULT)
                 .append(Constants.DOT_SEPARATOR).append(type)
@@ -406,6 +408,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         if (userRole != null) {
             sb.append(Constants.DOT_SEPARATOR).append(userRole);
         }
+        if (clientVersion != null) sb.append(Constants.DOT_SEPARATOR).append(clientVersion);
         return sb.toString();
     }
 
