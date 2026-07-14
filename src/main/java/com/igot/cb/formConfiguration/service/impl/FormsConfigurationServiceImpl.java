@@ -311,6 +311,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 ProjectUtil.returnErrorMsg(validationMsg, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
                 return response;
             }
+
             Map<String, Object> requestData = (Map<String, Object>) formConfigData.get(Constants.Parameters.REQUEST);
             String type = requestData.get(Constants.TYPE).toString();
             String subtype = requestData.get(Constants.SUBTYPE).toString();
@@ -318,37 +319,45 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             Map<String, Object> criteria = (Map<String, Object>) requestData.get(Constants.CRITERIA);
             String criteriaOrg = criteria != null && criteria.get(Constants.ROOTORG) != null ? criteria.get(Constants.ROOTORG).toString() : null;
             String criteriaRole = criteria != null && criteria.get(Constants.ROLE) != null ? criteria.get(Constants.ROLE).toString() : null;
-            // Check if field exists and is active
-            Optional<FormConfigurationEntity> formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(
+            Double clientVersion = Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString());
+
+            // Only update the record whose client version also matches; otherwise treat it as a new version
+            Optional<FormConfigurationEntity> formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteriaAndVersion(
                     type,
                     subtype,
                     portal,
                     criteriaOrg,
-                    Collections.singletonList(criteriaRole)
+                    Collections.singletonList(criteriaRole),
+                    clientVersion
             );
-            if (formConfigurationEntity.isEmpty()) {
-                ProjectUtil.returnErrorMsg("FormConfig Data not exist: " + type + Constants.DOT_SEPARATOR + subtype + Constants.DOT_SEPARATOR + portal, HttpStatus.NOT_FOUND, response, Constants.FAILED);
-                return response;
-            }
-            // Get old criteria org before updating
-            JsonNode oldCriteriaNode = formConfigurationEntity.get().getCriteria();
-            String oldOrg = "*";
-            if (oldCriteriaNode != null && oldCriteriaNode.has(Constants.ROOTORG)) {
-                oldOrg = oldCriteriaNode.get(Constants.ROOTORG).asText();
-            }
 
-            // Update entity data
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
             String formattedCurrentTime = getFormattedCurrentTime(currentTime);
-            FormConfigurationEntity originalData = formConfigurationEntity.get();
             JsonNode dataNode = objectMapper.valueToTree(requestData.get(Constants.DATA));
             JsonNode criteriaNode = objectMapper.valueToTree(requestData.get(Constants.CRITERIA));
+
+            FormConfigurationEntity originalData;
+            String oldOrg;
+            String createdOn;
+
+            if (formConfigurationEntity.isPresent()) {
+                originalData = formConfigurationEntity.get();
+                createdOn = originalData.getCreatedAt();
+                JsonNode oldCriteriaNode = originalData.getCriteria();
+                oldOrg = (oldCriteriaNode != null && oldCriteriaNode.has(Constants.ROOTORG)) ? oldCriteriaNode.get(Constants.ROOTORG).asText() : "*";
+            } else {
+                originalData = new FormConfigurationEntity();
+                originalData.setCreatedAt(formattedCurrentTime);
+                originalData.setCreatedBy(userDetails.getUserId());
+                createdOn = formattedCurrentTime;
+                oldOrg = criteriaOrg != null ? criteriaOrg : "*";
+            }
 
             originalData.setData(dataNode);
             originalData.setType(type);
             originalData.setPortal(portal);
             originalData.setSubtype(subtype);
-            originalData.setClientVersion(Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
+            originalData.setClientVersion(clientVersion);
             originalData.setCriteria(criteriaNode);
             originalData.setUpdatedBy(userDetails.getUserId());
             originalData.setUpdatedAt(formattedCurrentTime);
@@ -361,7 +370,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             Map<String, Object> dataMap = objectMapper.convertValue(originalData.getData(), Map.class);
             result.put(Constants.DATA, dataMap);
 
-            response.put(Constants.CREATED_ON, formConfigurationEntity.get().getCreatedAt());
+            response.put(Constants.CREATED_ON, createdOn);
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
             response.setResult(result);

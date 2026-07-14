@@ -12,6 +12,7 @@ import com.igot.cb.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,6 +21,8 @@ import org.springframework.http.HttpStatus;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -174,17 +177,51 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
-    void updateFormConfig_success() {
+    void updateFormConfig_versionMatches_updatesExistingRecord() {
+        FormConfigurationEntity existing = entity();
+        existing.setClientVersion(1.0);
+
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any()))
-                .thenReturn(Optional.of(entity()));
+        when(repository.getFormConfigDataByCriteriaAndVersion(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), eq(1.0)))
+                .thenReturn(Optional.of(existing));
         when(objectMapper.valueToTree(any())).thenReturn(mock(com.fasterxml.jackson.databind.JsonNode.class));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
         ApiResponse response = service.updateFormConfig(getRequest(), "token");
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
+        ArgumentCaptor<FormConfigurationEntity> savedEntity = ArgumentCaptor.forClass(FormConfigurationEntity.class);
+        verify(repository).save(savedEntity.capture());
+        assertSame(existing, savedEntity.getValue());
+        assertEquals(1.0, savedEntity.getValue().getClientVersion());
+        verify(cacheService).putCache(anyString(), any());
+    }
+
+    @Test
+    void updateFormConfig_versionMismatch_createsNewRecordInsteadOfOverwriting() {
+        FormConfigurationEntity existingOtherVersion = entity();
+        existingOtherVersion.setClientVersion(1.0);
+
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+        // Requesting an update for clientVersion=2.0, but only clientVersion=1.0 data exists.
+        when(repository.getFormConfigDataByCriteriaAndVersion(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), eq(2.0)))
+                .thenReturn(Optional.empty());
+        when(objectMapper.valueToTree(any())).thenReturn(mock(com.fasterxml.jackson.databind.JsonNode.class));
+        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
+
+        Map<String, Object> request = getRequest();
+        ((Map<String, Object>) request.get(Constants.Parameters.REQUEST)).put(Constants.CLIENT_VERSION, 2.0);
+
+        ApiResponse response = service.updateFormConfig(request, "token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        ArgumentCaptor<FormConfigurationEntity> savedEntity = ArgumentCaptor.forClass(FormConfigurationEntity.class);
+        verify(repository).save(savedEntity.capture());
+        // A distinct entity was saved -- the pre-existing version 1.0 record was left untouched.
+        assertNotSame(existingOtherVersion, savedEntity.getValue());
+        assertEquals(2.0, savedEntity.getValue().getClientVersion());
         verify(cacheService).putCache(anyString(), any());
     }
 }
