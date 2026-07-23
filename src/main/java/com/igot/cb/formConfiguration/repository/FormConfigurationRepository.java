@@ -20,6 +20,7 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
       AND portal = :portal
       AND criteria ->> 'rootOrg' = :rootOrg
       AND criteria ->> 'role' IN (:roles)
+      AND client_version = :clientVersion
     LIMIT 1
     """, nativeQuery = true)
     Optional<FormConfigurationEntity> getFormConfigDataByCriteria(
@@ -27,7 +28,8 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
             @Param("subtype") String subtype,
             @Param("portal") String portal,
             @Param("rootOrg") String rootOrg,
-            @Param("roles") List<String> roles
+            @Param("roles") List<String> roles,
+            @Param("clientVersion") Double clientVersion
     );
 
 }

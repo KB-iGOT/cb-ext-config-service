@@ -97,7 +97,8 @@ public class ValidationService {
                         request.get(Constants.SUBTYPE).toString(),
                         request.get(Constants.PORTAL).toString(),
                         criteria.get(Constants.ROOTORG).toString(),
-                        Collections.singletonList(criteria.get(Constants.ROLE).toString())
+                        Collections.singletonList(criteria.get(Constants.ROLE).toString()),
+                        Double.valueOf(request.get(Constants.CLIENT_VERSION).toString())
                 );
 
         return formConfigurationEntity.orElse(null);
