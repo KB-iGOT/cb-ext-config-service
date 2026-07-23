@@ -59,6 +59,13 @@ public class ValidationService {
         }
 
         if (Constants.Parameters.CREATE.equalsIgnoreCase(operation) || Constants.Parameters.UPDATE.equalsIgnoreCase(operation)) {
+            if (ObjectUtils.isEmpty(requestObject.get(Constants.NAME)) ||
+                    !(requestObject.get(Constants.NAME) instanceof String) ||
+                    StringUtils.isBlank((String) requestObject.get(Constants.NAME))) {
+                validationMsg = Constants.ResponseMessages.FIELD_NAME_MISSING;
+            } else if (((String) requestObject.get(Constants.NAME)).length() > 250) {
+                validationMsg = Constants.ResponseMessages.FIELD_NAME_INVALID_LENGTH;
+            }
             if(ObjectUtils.isEmpty(requestObject.get(Constants.CRITERIA))){
                 validationMsg = Constants.ResponseMessages.FIELD_CRIETERIA_MISSING;
             }else if(requestObject.get(Constants.CRITERIA) instanceof Map<?,?>){
@@ -102,6 +109,58 @@ public class ValidationService {
                 );
 
         return formConfigurationEntity.orElse(null);
+    }
+
+    public String validateV2CreateForm(Map<String, Object> formRequest) {
+        if (MapUtils.isEmpty(formRequest)) {
+            return Constants.CHECK_REQUEST_PARAMS;
+        }
+        if (!formRequest.containsKey(Constants.Parameters.REQUEST) || ObjectUtils.isEmpty(formRequest.get(Constants.Parameters.REQUEST))) {
+            return Constants.CHECK_REQUEST_PARAMS;
+        }
+        Map<String, Object> requestObject = (Map<String, Object>) formRequest.get(Constants.Parameters.REQUEST);
+
+        for (String key : requestObject.keySet()) {
+            if (!Constants.NAME.equals(key) &&
+                    !Constants.TYPE.equals(key) &&
+                    !Constants.SUBTYPE.equals(key) &&
+                    !Constants.PORTAL.equals(key) &&
+                    !Constants.CLIENT_VERSION.equals(key)) {
+                return Constants.ResponseMessages.BAD_REQUEST;
+            }
+        }
+
+        if (ObjectUtils.isEmpty(requestObject.get(Constants.NAME)) ||
+                !(requestObject.get(Constants.NAME) instanceof String) ||
+                StringUtils.isBlank((String) requestObject.get(Constants.NAME))) {
+            return Constants.ResponseMessages.FIELD_NAME_MISSING;
+        } else if (((String) requestObject.get(Constants.NAME)).length() > 250) {
+            return Constants.ResponseMessages.FIELD_NAME_INVALID_LENGTH;
+        }
+
+        if (ObjectUtils.isEmpty(requestObject.get(Constants.TYPE)) ||
+                !(requestObject.get(Constants.TYPE) instanceof String) ||
+                StringUtils.isBlank((String) requestObject.get(Constants.TYPE))) {
+            return Constants.ResponseMessages.FIELD_TYPE_MISSING;
+        }
+
+        if (ObjectUtils.isEmpty(requestObject.get(Constants.SUBTYPE)) ||
+                !(requestObject.get(Constants.SUBTYPE) instanceof String) ||
+                StringUtils.isBlank((String) requestObject.get(Constants.SUBTYPE))) {
+            return Constants.ResponseMessages.FIELD_SUBTYPE_MISSING;
+        }
+
+        if (ObjectUtils.isEmpty(requestObject.get(Constants.PORTAL)) ||
+                !(requestObject.get(Constants.PORTAL) instanceof String) ||
+                StringUtils.isBlank((String) requestObject.get(Constants.PORTAL))) {
+            return Constants.ResponseMessages.FIELD_PORTAL_MISSING;
+        }
+
+        if (ObjectUtils.isEmpty(requestObject.get(Constants.CLIENT_VERSION)) || Objects.isNull(requestObject.get(Constants.CLIENT_VERSION))) {
+            return Constants.ResponseMessages.FIELD_CLIENTVERSION_MISSING;
+        }
+
+        return Constants.SUCCESSFUL;
     }
 
 }

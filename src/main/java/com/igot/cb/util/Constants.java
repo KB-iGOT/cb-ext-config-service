@@ -62,6 +62,8 @@ public interface Constants {
         static final String FIELD_TYPE_MISSING = "Field type is missing";
         static final String INVALID_CLIENT_VERSION = "Invalid client version";
         static final String FIELD_CLIENTVERSION_MISSING = "Field clientVersion is missing";
+        static final String FIELD_NAME_MISSING = "Field name is missing";
+        static final String FIELD_NAME_INVALID_LENGTH = "Field name length exceeds 250 characters";
 
         static final String BAD_REQUEST = "Bad Request";
 
@@ -69,6 +71,7 @@ public interface Constants {
 
 
     public static final String CLIENT_VERSION = "clientVersion";
+    public static final String NAME = "name";
 
 
     public static final String SUCCESSFUL = "successful";

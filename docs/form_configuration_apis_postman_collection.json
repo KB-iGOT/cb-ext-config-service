@@ -1,0 +1,329 @@
+{
+  "info": {
+    "_postman_id": "cb1cfa8a-59b4-4b5c-897b-60a66d0c6489",
+    "name": "Form Configuration Service API",
+    "description": "Collection for Form Configuration Service endpoints including V1 and V2 APIs.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "V1 APIs",
+      "item": [
+        {
+          "name": "Create Form Config V1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-authenticated-user-token",
+                "value": "{{user_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request\": {\n    \"name\": \"Profile Form Configuration\",\n    \"type\": \"profile\",\n    \"subtype\": \"personal-details\",\n    \"portal\": \"web\",\n    \"clientVersion\": 1.0,\n    \"criteria\": {\n      \"rootOrg\": \"karmayogi\",\n      \"role\": \"PUBLIC\"\n    },\n    \"data\": {\n      \"fields\": [\n        {\n          \"name\": \"firstName\",\n          \"type\": \"text\",\n          \"required\": true\n        }\n      ]\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/formsConfig/create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Read Form Config V1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-authenticated-user-token",
+                "value": "{{user_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request\": {\n    \"type\": \"profile\",\n    \"subtype\": \"personal-details\",\n    \"portal\": \"web\",\n    \"clientVersion\": 1.0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/formsConfig/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "read"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Form Config V1",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-authenticated-user-token",
+                "value": "{{user_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request\": {\n    \"name\": \"Profile Form Configuration Updated\",\n    \"type\": \"profile\",\n    \"subtype\": \"personal-details\",\n    \"portal\": \"web\",\n    \"clientVersion\": 1.0,\n    \"criteria\": {\n      \"rootOrg\": \"karmayogi\",\n      \"role\": \"PUBLIC\"\n    },\n    \"data\": {\n      \"fields\": [\n        {\n          \"name\": \"firstName\",\n          \"type\": \"text\",\n          \"required\": true\n        },\n        {\n          \"name\": \"lastName\",\n          \"type\": \"text\",\n          \"required\": false\n        }\n      ]\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/formsConfig/update",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Read Form Config For Admin V1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-authenticated-user-orgid",
+                "value": "{{admin_org_id}}",
+                "type": "text"
+              },
+              {
+                "key": "x-authenticated-user-roles",
+                "value": "ADMIN,SPV",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request\": {\n    \"type\": \"profile\",\n    \"subtype\": \"personal-details\",\n    \"portal\": \"web\",\n    \"clientVersion\": 1.0,\n    \"criteria\": {\n      \"rootOrg\": \"karmayogi\",\n      \"role\": \"PUBLIC\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/formsConfig/admin/read/:userId",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "admin",
+                "read",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "admin-user-id"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "V2 APIs",
+      "item": [
+        {
+          "name": "Create Form Config V2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-authenticated-user-token",
+                "value": "{{user_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request\": {\n    \"name\": \"V2 Quick Profile Configuration\",\n    \"type\": \"v2-profile\",\n    \"subtype\": \"basic\",\n    \"portal\": \"mobile\",\n    \"clientVersion\": 2.0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/formsConfig/v2/create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "v2",
+                "create"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Read Form Config By ID V2",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-authenticated-user-token",
+                "value": "{{user_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/formsConfig/v2/admin/read/:formId",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "v2",
+                "admin",
+                "read",
+                ":formId"
+              ],
+              "variable": [
+                {
+                  "key": "formId",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Form Config V2",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "x-authenticated-user-token",
+                "value": "{{user_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request\": {\n    \"id\": 1,\n    \"name\": \"V2 Profile Configuration (Updated)\",\n    \"type\": \"v2-profile\",\n    \"subtype\": \"basic\",\n    \"portal\": \"mobile\",\n    \"clientVersion\": 2.0\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/formsConfig/v2/update",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "v2",
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Form Configs V2",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-authenticated-user-token",
+                "value": "{{user_token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/formsConfig/v2/admin/list",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "formsConfig",
+                "v2",
+                "admin",
+                "list"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:7010",
+      "type": "string"
+    },
+    {
+      "key": "user_token",
+      "value": "YOUR_AUTH_TOKEN_HERE",
+      "type": "string"
+    },
+    {
+      "key": "admin_org_id",
+      "value": "YOUR_ORG_ID_HERE",
+      "type": "string"
+    }
+  ]
+}

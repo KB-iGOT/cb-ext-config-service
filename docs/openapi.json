@@ -1,0 +1,483 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "cb-ext-config-service API Documentation",
+    "description": "API documentation for the Form Configuration Service (both V1 and V2 APIs).",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7010"
+    }
+  ],
+  "paths": {
+    "/formsConfig/create": {
+      "post": {
+        "summary": "Create Form Configuration (V1)",
+        "operationId": "createFormConfig",
+        "parameters": [
+          {
+            "name": "x-authenticated-user-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormConfigRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/formsConfig/read": {
+      "post": {
+        "summary": "Read Form Configuration (V1)",
+        "operationId": "readFormConfig",
+        "parameters": [
+          {
+            "name": "x-authenticated-user-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormReadRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    },
+    "/formsConfig/update": {
+      "put": {
+        "summary": "Update Form Configuration (V1)",
+        "operationId": "updateFormConfig",
+        "parameters": [
+          {
+            "name": "x-authenticated-user-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormConfigRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    },
+    "/formsConfig/admin/read/{userId}": {
+      "post": {
+        "summary": "Read Form Configuration for Admin (V1)",
+        "operationId": "readFormConfigForAdmin",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-authenticated-user-orgid",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-authenticated-user-roles",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormReadRequestV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    },
+    "/formsConfig/v2/create": {
+      "post": {
+        "summary": "Create Form Configuration (V2)",
+        "operationId": "createFormConfigV2",
+        "parameters": [
+          {
+            "name": "x-authenticated-user-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormConfigRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    },
+    "/formsConfig/v2/admin/read/{formId}": {
+      "get": {
+        "summary": "Read Form Configuration By ID (V2)",
+        "operationId": "readFormConfigById",
+        "parameters": [
+          {
+            "name": "formId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "x-authenticated-user-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    },
+    "/formsConfig/v2/update": {
+      "put": {
+        "summary": "Update Form Configuration (V2)",
+        "operationId": "updateFormConfigV2",
+        "parameters": [
+          {
+            "name": "x-authenticated-user-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormUpdateRequestV2"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    },
+    "/formsConfig/v2/admin/list": {
+      "get": {
+        "summary": "List Form Configurations (V2)",
+        "operationId": "listFormConfigs",
+        "parameters": [
+          {
+            "name": "x-authenticated-user-token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FormConfigRequestV1": {
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "subtype",
+              "portal",
+              "clientVersion",
+              "criteria"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "type": {
+                "type": "string"
+              },
+              "subtype": {
+                "type": "string"
+              },
+              "portal": {
+                "type": "string"
+              },
+              "clientVersion": {
+                "type": "number",
+                "format": "double"
+              },
+              "criteria": {
+                "type": "object",
+                "required": [
+                  "rootOrg",
+                  "role"
+                ],
+                "properties": {
+                  "rootOrg": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string"
+                  }
+                }
+              },
+              "data": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "FormReadRequestV1": {
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "type": "object",
+            "required": [
+              "type",
+              "subtype",
+              "portal",
+              "clientVersion"
+            ],
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "subtype": {
+                "type": "string"
+              },
+              "portal": {
+                "type": "string"
+              },
+              "clientVersion": {
+                "type": "number",
+                "format": "double"
+              }
+            }
+          }
+        }
+      },
+      "FormConfigRequestV2": {
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "subtype",
+              "portal",
+              "clientVersion"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "type": {
+                "type": "string"
+              },
+              "subtype": {
+                "type": "string"
+              },
+              "portal": {
+                "type": "string"
+              },
+              "clientVersion": {
+                "type": "number",
+                "format": "double"
+              }
+            }
+          }
+        }
+      },
+      "FormUpdateRequestV2": {
+        "type": "object",
+        "required": [
+          "request"
+        ],
+        "properties": {
+          "request": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "type",
+              "subtype",
+              "portal",
+              "clientVersion",
+              "criteria"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "formId": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "type": {
+                "type": "string"
+              },
+              "subtype": {
+                "type": "string"
+              },
+              "portal": {
+                "type": "string"
+              },
+              "clientVersion": {
+                "type": "number",
+                "format": "double"
+              },
+              "criteria": {
+                "type": "object"
+              },
+              "data": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ver": {
+            "type": "string"
+          },
+          "ts": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object"
+          },
+          "responseCode": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

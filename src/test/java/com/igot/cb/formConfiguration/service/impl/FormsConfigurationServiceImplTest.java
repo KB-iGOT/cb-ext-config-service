@@ -63,6 +63,7 @@ class FormsConfigurationServiceImplTest {
         criteria.put("role", "PUBLIC");
 
         Map<String, Object> req = new HashMap<>();
+        req.put(Constants.NAME, "testName");
         req.put(Constants.TYPE, "page");
         req.put(Constants.SUBTYPE, "player test");
         req.put(Constants.PORTAL, "mobile");
@@ -77,6 +78,7 @@ class FormsConfigurationServiceImplTest {
 
     private FormConfigurationEntity entity() {
         FormConfigurationEntity entity = new FormConfigurationEntity();
+        entity.setName("testName");
         entity.setType("page");
         entity.setSubtype("player test");
         entity.setPortal("mobile");
@@ -186,6 +188,75 @@ class FormsConfigurationServiceImplTest {
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
         verify(cacheService).putCache(anyString(), any());
+    }
+
+    @Test
+    void createFormConfigV2_success() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateV2CreateForm(anyMap())).thenReturn(Constants.SUCCESSFUL);
+
+        ApiResponse response = service.createFormConfigV2(getRequest(), "token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(repository).save(any(FormConfigurationEntity.class));
+    }
+
+    @Test
+    void createFormConfigV2_validationFailure() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateV2CreateForm(anyMap())).thenReturn("Validation error");
+
+        ApiResponse response = service.createFormConfigV2(getRequest(), "token");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfigById_success() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findById(1L)).thenReturn(Optional.of(entity()));
+
+        ApiResponse response = service.readFormConfigById(1L, "token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfigById_notFound() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findById(1L)).thenReturn(Optional.empty());
+
+        ApiResponse response = service.readFormConfigById(1L, "token");
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfigV2_success() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+        
+        FormConfigurationEntity original = entity();
+        original.setId(1L);
+        when(repository.findById(1L)).thenReturn(Optional.of(original));
+
+        Map<String, Object> req = getRequest();
+        ((Map<String, Object>) req.get(Constants.Parameters.REQUEST)).put("id", 1L);
+
+        ApiResponse response = service.updateFormConfigV2(req, "token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(repository).save(any(FormConfigurationEntity.class));
+    }
+
+    @Test
+    void listFormConfigs_success() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findAll()).thenReturn(List.of(entity()));
+
+        ApiResponse response = service.listFormConfigs("token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
     }
 }
 

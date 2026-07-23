@@ -48,4 +48,35 @@ public class ConfigurationController {
     ApiResponse response = formsConfigurationService.readFormConfig(request,authTokenOrUserId,userOrgId,userRoles,true);
     return new ResponseEntity<>(response, response.getResponseCode());
   }
+
+  @PostMapping("/v2/create")
+  public ResponseEntity<ApiResponse> createFormConfigV2(
+          @RequestBody Map<String, Object> request,
+          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
+    ApiResponse response = formsConfigurationService.createFormConfigV2(request, token);
+    return new ResponseEntity<>(response, response.getResponseCode());
+  }
+
+  @GetMapping("/v2/admin/read/{formId}")
+  public ResponseEntity<ApiResponse> readFormConfigById(
+          @PathVariable("formId") Long formId,
+          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
+    ApiResponse response = formsConfigurationService.readFormConfigById(formId, token);
+    return new ResponseEntity<>(response, response.getResponseCode());
+  }
+
+  @PutMapping("/v2/update")
+  public ResponseEntity<ApiResponse> updateFormConfigV2(
+          @RequestBody Map<String, Object> request,
+          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
+    ApiResponse response = formsConfigurationService.updateFormConfigV2(request, token);
+    return new ResponseEntity<>(response, response.getResponseCode());
+  }
+
+  @GetMapping("/v2/admin/list")
+  public ResponseEntity<ApiResponse> listFormConfigs(
+          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
+    ApiResponse response = formsConfigurationService.listFormConfigs(token);
+    return new ResponseEntity<>(response, response.getResponseCode());
+  }
 }
