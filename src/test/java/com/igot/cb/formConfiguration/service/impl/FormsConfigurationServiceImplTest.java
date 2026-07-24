@@ -61,6 +61,7 @@ class FormsConfigurationServiceImplTest {
         Map<String, Object> criteria = new HashMap<>();
         criteria.put("rootOrg", "org1");
         criteria.put("role", "PUBLIC");
+        criteria.put("designation", List.of("Assistant Engineer Mechanic"));
 
         Map<String, Object> req = new HashMap<>();
         req.put(Constants.NAME, "testName");
@@ -120,7 +121,7 @@ class FormsConfigurationServiceImplTest {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
+        when(repository.getFormConfigDataByCriteriaByDesignation(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any(), any()))
                 .thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
@@ -135,8 +136,6 @@ class FormsConfigurationServiceImplTest {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(cacheService.getCache(anyString())).thenReturn(null).thenReturn("{}");
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.empty());
         when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
                 .thenReturn(new HashMap<>());
 
@@ -150,9 +149,9 @@ class FormsConfigurationServiceImplTest {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
+        when(repository.getFormConfigDataByCriteriaByDesignation(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any(), any()))
                 .thenReturn(Optional.empty());
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("*"), any(), any()))
+        when(repository.getFormConfigDataByCriteriaByDesignation(eq("page"), eq("player test"), eq("mobile"), eq("*"), any(), any(), any()))
                 .thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
@@ -166,20 +165,30 @@ class FormsConfigurationServiceImplTest {
     void readFormConfig_adminUsesPayloadCriteria() {
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
+        when(repository.getFormConfigDataByCriteriaByDesignation(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any(), any()))
                 .thenReturn(Optional.empty());
 
         ApiResponse response = service.readFormConfig(getRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
-        verify(repository).getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any());
+        verify(repository).getFormConfigDataByCriteriaByDesignation(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any(), any());
+    }
+
+    @Test
+    void readFormConfig_adminUsesDesignationPriorityInCacheKey() {
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
+        when(cacheService.getCache(anyString())).thenReturn(null);
+
+        service.readFormConfig(getRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
+
+        verify(cacheService).getCache(argThat(key -> key.contains("designation") || key.contains("Assistant Engineer Mechanic")));
     }
 
     @Test
     void updateFormConfig_success() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
+        when(repository.getFormConfigDataByCriteriaByDesignation(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any(), any()))
                 .thenReturn(Optional.of(entity()));
         when(objectMapper.valueToTree(any())).thenReturn(mock(com.fasterxml.jackson.databind.JsonNode.class));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());

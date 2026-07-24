@@ -32,4 +32,30 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
             @Param("clientVersion") Double clientVersion
     );
 
+   @Query(value = """
+    SELECT *
+    FROM form_configuration
+    WHERE type = :type
+      AND subtype = :subtype
+      AND portal = :portal
+      AND criteria ->> 'rootOrg' = :rootOrg
+      AND criteria ->> 'role' IN (:roles)
+      AND client_version = :clientVersion
+      AND (
+        criteria -> 'designation' IS NULL
+        OR criteria -> 'designation' @> CAST(:designationJson AS jsonb)
+      )
+    ORDER BY CASE WHEN criteria -> 'designation' @> CAST(:designationJson AS jsonb) THEN 0 ELSE 1 END
+    LIMIT 1
+    """, nativeQuery = true)
+    Optional<FormConfigurationEntity> getFormConfigDataByCriteriaByDesignation(
+            @Param("type") String type,
+            @Param("subtype") String subtype,
+            @Param("portal") String portal,
+            @Param("rootOrg") String rootOrg,
+            @Param("roles") List<String> roles,
+            @Param("clientVersion") Double clientVersion,
+            @Param("designationJson") String designationJson
+    );
+
 }

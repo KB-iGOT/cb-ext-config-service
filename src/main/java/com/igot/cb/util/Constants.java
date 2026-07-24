@@ -96,6 +96,7 @@ public interface Constants {
     public static final String FORM ="form" ;
     public static final String ROLE ="role";
     public static final String ROOTORG ="rootOrg";
+    public static final String DESIGNATION = "designation";
     static final String TYPE ="type" ;
     public static final String CRITERIA ="criteria" ;
     public static final String CHECK_REQUEST_PARAMS="Invalid Payload";
