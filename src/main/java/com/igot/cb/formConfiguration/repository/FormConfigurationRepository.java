@@ -12,7 +12,41 @@ import java.util.Optional;
 
 @Repository
 public interface FormConfigurationRepository extends JpaRepository<FormConfigurationEntity,Long> {
-   @Query(value = """
+
+    /**
+     * Rule 1: matches a row scoped to the same ministryOrStateType — stored in the criteria column
+     * under the 'rootOrg' key, same as rule 2 — whose designation array overlaps the user's
+     * designations (a user can hold more than one designation).
+     */
+    @Query(value = """
+    SELECT *
+    FROM form_configuration
+    WHERE type = :type
+      AND subtype = :subtype
+      AND portal = :portal
+      AND client_version = :clientVersion
+      AND criteria ->> 'rootOrg' = :ministryOrStateType
+      AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(criteria -> 'designation') AS d(designation)
+          WHERE d.designation IN (:designations)
+      )
+    LIMIT 1
+    """, nativeQuery = true)
+    Optional<FormConfigurationEntity> getFormConfigByDesignationAndMinistry(
+            @Param("type") String type,
+            @Param("subtype") String subtype,
+            @Param("portal") String portal,
+            @Param("clientVersion") Double clientVersion,
+            @Param("ministryOrStateType") String ministryOrStateType,
+            @Param("designations") List<String> designations
+    );
+
+    /**
+     * Exact match for the "default"/role-only rule: only rows with NO designation at all.
+     * Deliberately excludes rows that have some other designation set, so this rule never
+     * accidentally answers for a differently-scoped, designation-specific row.
+     */
+    @Query(value = """
     SELECT *
     FROM form_configuration
     WHERE type = :type
@@ -21,41 +55,16 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
       AND criteria ->> 'rootOrg' = :rootOrg
       AND criteria ->> 'role' IN (:roles)
       AND client_version = :clientVersion
+      AND criteria -> 'designation' IS NULL
     LIMIT 1
     """, nativeQuery = true)
-    Optional<FormConfigurationEntity> getFormConfigDataByCriteria(
+    Optional<FormConfigurationEntity> getDefaultFormConfigDataByCriteria(
             @Param("type") String type,
             @Param("subtype") String subtype,
             @Param("portal") String portal,
             @Param("rootOrg") String rootOrg,
             @Param("roles") List<String> roles,
             @Param("clientVersion") Double clientVersion
-    );
-
-   @Query(value = """
-    SELECT *
-    FROM form_configuration
-    WHERE type = :type
-      AND subtype = :subtype
-      AND portal = :portal
-      AND criteria ->> 'rootOrg' = :rootOrg
-      AND criteria ->> 'role' IN (:roles)
-      AND client_version = :clientVersion
-      AND (
-        criteria -> 'designation' IS NULL
-        OR criteria -> 'designation' @> CAST(:designationJson AS jsonb)
-      )
-    ORDER BY CASE WHEN criteria -> 'designation' @> CAST(:designationJson AS jsonb) THEN 0 ELSE 1 END
-    LIMIT 1
-    """, nativeQuery = true)
-    Optional<FormConfigurationEntity> getFormConfigDataByCriteriaByDesignation(
-            @Param("type") String type,
-            @Param("subtype") String subtype,
-            @Param("portal") String portal,
-            @Param("rootOrg") String rootOrg,
-            @Param("roles") List<String> roles,
-            @Param("clientVersion") Double clientVersion,
-            @Param("designationJson") String designationJson
     );
 
 }

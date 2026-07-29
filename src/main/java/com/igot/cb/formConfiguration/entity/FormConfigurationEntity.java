@@ -25,7 +25,7 @@ public class FormConfigurationEntity implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", length = 250, nullable = false)
+    @Column(name = "name", length = 250, nullable = false, unique = true)
     private String name;
 
     @Column(name = "type", nullable = false)
