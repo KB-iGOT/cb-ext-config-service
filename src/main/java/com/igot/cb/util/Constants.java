@@ -64,6 +64,7 @@ public interface Constants {
         static final String FIELD_CLIENTVERSION_MISSING = "Field clientVersion is missing";
         static final String FIELD_NAME_MISSING = "Field name is missing";
         static final String FIELD_NAME_INVALID_LENGTH = "Field name length exceeds 250 characters";
+        static final String FIELD_MINISTRY_OR_STATE_TYPE_MISSING = "Field ministryOrStateType is missing";
 
         static final String BAD_REQUEST = "Bad Request";
 
@@ -97,13 +98,20 @@ public interface Constants {
     public static final String ROLE ="role";
     public static final String ROOTORG ="rootOrg";
     public static final String DESIGNATION = "designation";
+    public static final String MINISTRY_OR_STATE_TYPE = "ministryOrStateType";
+    public static final String ORGANISATION_ID = "organisationId";
     static final String TYPE ="type" ;
     public static final String CRITERIA ="criteria" ;
     public static final String CHECK_REQUEST_PARAMS="Invalid Payload";
     public static final String ERROR = "ERROR";
     static final boolean TRUE = true;
     static final boolean FALSE = false ;
-    static final String FORM_CONFIG_EXIST = "Form Configuration already exist for the combination" ;
+
+    public static final String ORG_READ_BASE_URL = "/v1/org/read";
+    public static final String USER_READ_BASE_URL = "/v5/user/read";
+    public static final String LMS_SER_HOST = "lms.service.host";
+
+    public static final String HEADER_AUTHORIZATION = "Authorization";
 
     public static final String SSO_URL = "sso.url";
     public static final String SSO_REALM = "sso.realm";

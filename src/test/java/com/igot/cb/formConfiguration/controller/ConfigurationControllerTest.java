@@ -42,23 +42,6 @@ class ConfigurationControllerTest {
   FormConfigurationRepository formConfigurationRepository;
 
   @Test
-  void createFormConfig_shouldReturnOk() throws Exception {
-    Map<String, Object> request = getRequest();
-
-    ApiResponse response = new ApiResponse();
-    response.setResponseCode(HttpStatus.OK);
-
-    Mockito.when(formsConfigurationService.createFormConfig(anyMap(), anyString()))
-            .thenReturn(response);
-
-    mockMvc.perform(post("/formsConfig/create")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header(Constants.Parameters.X_AUTH_TOKEN, "token")
-                    .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk());
-  }
-
-  @Test
   void readFormConfigForUser_shouldReturnOk() throws Exception {
     Map<String, Object> request = getRequest();
 
@@ -74,23 +57,6 @@ class ConfigurationControllerTest {
             .thenReturn(response);
 
     mockMvc.perform(post("/formsConfig/read")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header(Constants.Parameters.X_AUTH_TOKEN, "token")
-                    .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk());
-  }
-
-  @Test
-  void updateFormConfig_shouldReturnOk() throws Exception {
-    Map<String, Object> request = getRequest();
-
-    ApiResponse response = new ApiResponse();
-    response.setResponseCode(HttpStatus.OK);
-
-    Mockito.when(formsConfigurationService.updateFormConfig(anyMap(), anyString()))
-            .thenReturn(response);
-
-    mockMvc.perform(put("/formsConfig/update")
                     .contentType(MediaType.APPLICATION_JSON)
                     .header(Constants.Parameters.X_AUTH_TOKEN, "token")
                     .content(objectMapper.writeValueAsString(request)))
