@@ -35,22 +35,6 @@ public class ConfigurationController {
     return new ResponseEntity<>(response, response.getResponseCode());
   }
 
-  @PostMapping("/create")
-  public ResponseEntity<ApiResponse> createFormConfig(
-          @RequestBody Map<String, Object> request,
-          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
-    ApiResponse response = formsConfigurationService.createFormConfig(request, token);
-    return new ResponseEntity<>(response, response.getResponseCode());
-  }
-
-  @PutMapping("/update")
-  public ResponseEntity<ApiResponse> updateFormConfig(
-          @RequestBody Map<String, Object> request,
-          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
-    ApiResponse response = formsConfigurationService.updateFormConfig(request, token);
-    return new ResponseEntity<>(response, response.getResponseCode());
-  }
-
   @PostMapping("/v2/create")
   public ResponseEntity<ApiResponse> createFormConfigV2(
           @RequestBody Map<String, Object> request,
