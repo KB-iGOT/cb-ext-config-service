@@ -14,6 +14,13 @@ import java.util.Optional;
 public interface FormConfigurationRepository extends JpaRepository<FormConfigurationEntity,Long> {
 
     /**
+     * Fallback rule for rows with no criteria at all (e.g. created via /v2/create, which never sets
+     * criteria) — plain match on the compound key, no role/org/designation scoping.
+     */
+    Optional<FormConfigurationEntity> findByTypeAndSubtypeAndPortalAndClientVersionAndCriteriaIsNull(
+            String type, String subtype, String portal, Double clientVersion);
+
+    /**
      * Rule 1: matches a row scoped to the same ministryOrStateType — stored in the criteria column
      * under the 'rootOrg' key, same as rule 2 — whose designation array overlaps the user's
      * designations (a user can hold more than one designation).
