@@ -1,6 +1,7 @@
 package com.igot.cb.formConfiguration.external;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.igot.cb.authentication.model.UserDetails;
 import com.igot.cb.util.Constants;
 import com.igot.cb.util.PropertiesCache;
 
@@ -18,9 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Assumed contract: GET {@code {baseUrl}/{userId}}, response carrying the user's designations at
- * {@code result.response.profileDetails.professionalDetails[].designation}. Adjust the parsing in
- * {@link #extractDesignations(JsonNode)} if the real response shape differs.
+ * Confirmed contract: GET {@code {baseUrl}/{userId}}, response carrying the user's designations at
+ * {@code result.response.profileDetails.professionalDetails[].designation} and the user's own
+ * ministryOrStateId at {@code result.response.rootOrg.ministryOrStateId}.
  */
 @Service
 @Slf4j
@@ -34,9 +35,11 @@ public class UserDesignationServiceImpl implements UserDesignationService {
 
 
     @Override
-    public List<String> getDesignations(String userId, String token) {
+    public void resolveUserProfile(UserDetails userDetails, String token) {
+        userDetails.setDesignations(List.of());
+        String userId = userDetails.getUserId();
         if (StringUtils.isBlank(userId)) {
-            return List.of();
+            return;
         }
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -45,10 +48,10 @@ public class UserDesignationServiceImpl implements UserDesignationService {
             }
             String url = userReadEndpoint + "/" + userId;
             JsonNode response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class).getBody();
-            return extractDesignations(response);
+            userDetails.setDesignations(extractDesignations(response));
+            userDetails.setMinistryOrStateType(extractMinistryOrStateType(response));
         } catch (Exception e) {
-            log.warn("UserDesignationServiceImpl: failed to resolve designations for userId {}: {}", userId, e.getMessage());
-            return List.of();
+            log.warn("UserDesignationServiceImpl: failed to resolve user profile for userId {}: {}", userId, e.getMessage());
         }
     }
 
@@ -68,5 +71,14 @@ public class UserDesignationServiceImpl implements UserDesignationService {
             }
         }
         return designations;
+    }
+
+    private String extractMinistryOrStateType(JsonNode response) {
+        if (response == null) {
+            return null;
+        }
+        JsonNode value = response.path("result").path("response")
+                .path("rootOrg").path(Constants.MINISTRY_OR_STATE_ID);
+        return value.isMissingNode() || value.isNull() ? null : value.asText(null);
     }
 }

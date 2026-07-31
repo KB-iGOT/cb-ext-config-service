@@ -107,7 +107,9 @@ public class ValidationService {
                     !Constants.TYPE.equals(key) &&
                     !Constants.SUBTYPE.equals(key) &&
                     !Constants.PORTAL.equals(key) &&
-                    !Constants.CLIENT_VERSION.equals(key)) {
+                    !Constants.CLIENT_VERSION.equals(key) &&
+                    !Constants.CRITERIA.equals(key) &&
+                    !Constants.DATA.equals(key)) {
                 return Constants.ResponseMessages.BAD_REQUEST;
             }
         }

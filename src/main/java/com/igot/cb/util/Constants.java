@@ -65,6 +65,7 @@ public interface Constants {
         static final String FIELD_NAME_MISSING = "Field name is missing";
         static final String FIELD_NAME_INVALID_LENGTH = "Field name length exceeds 250 characters";
         static final String FIELD_MINISTRY_OR_STATE_TYPE_MISSING = "Field ministryOrStateType is missing";
+        static final String FIELD_NAME_ALREADY_EXISTS = "Form configuration with this name already exists";
 
         static final String BAD_REQUEST = "Bad Request";
 
@@ -99,6 +100,7 @@ public interface Constants {
     public static final String ROOTORG ="rootOrg";
     public static final String DESIGNATION = "designation";
     public static final String MINISTRY_OR_STATE_TYPE = "ministryOrStateType";
+    public static final String MINISTRY_OR_STATE_ID = "ministryOrStateId";
     public static final String ORGANISATION_ID = "organisationId";
     static final String TYPE ="type" ;
     public static final String CRITERIA ="criteria" ;

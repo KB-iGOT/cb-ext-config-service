@@ -17,6 +17,7 @@ import com.igot.cb.util.Constants;
 import com.igot.cb.util.ProjectUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -59,29 +60,28 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         log.info("FormsConfigurationServiceImpl::readFormConfig: Getting forms {}", formConfigData);
         ApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_FORMS_CONFIG_API);
         try {
-            String userId;
-            List<String> roles;
-            String rootOrg;
+            UserDetails userDetails;
             String token = null;
             if (isAdmin) {
                 log.info("FormsConfigurationServiceImpl::readFormConfig: AdminUser");
-                userId = authTokenOrUserId;
-                roles = userRoles;
-                rootOrg = userOrg;
+                userDetails = new UserDetails();
+                userDetails.setUserId(authTokenOrUserId);
+                userDetails.setUserRoles(userRoles);
+                userDetails.setOrg(userOrg);
             } else {
                 log.info("FormsConfigurationServiceImpl::readFormConfig: Public/volunteer user");
-                UserDetails userDetails = accessTokenValidator.fetchUserDetailsFromToken(authTokenOrUserId);
+                userDetails = accessTokenValidator.fetchUserDetailsFromToken(authTokenOrUserId);
                 if (ObjectUtils.isEmpty(userDetails)) {
                     response.getParams().setStatus(Constants.FAILED);
                     response.getParams().setErrMsg(Constants.INVALID_AUTH_TOKEN);
                     response.setResponseCode(HttpStatus.UNAUTHORIZED);
                     return response;
                 }
-                userId = userDetails.getUserId();
-                roles = userDetails.getUserRoles();
-                rootOrg = userDetails.getOrg();
                 token = authTokenOrUserId;
             }
+            String userId = userDetails.getUserId();
+            List<String> roles = userDetails.getUserRoles();
+            String rootOrg = userDetails.getOrg();
 
             String validationMsg = validationService.validateForm(formConfigData, Constants.Parameters.READ);
             if (!Constants.SUCCESSFUL.equals(validationMsg)) {
@@ -97,8 +97,20 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
             // rule 1 dimensions: the org's ministryOrStateType and the user's own designation(s),
             // both resolved from the user/org services rather than the request payload.
-            String ministryOrStateType = orgReadService.getMinistryOrStateType(rootOrg, token);
-            List<String> designations = userDesignationService.getDesignations(userId, token);
+            String orgMinistryOrStateType = orgReadService.getMinistryOrStateType(rootOrg, token);
+            userDesignationService.resolveUserProfile(userDetails, token);
+            List<String> designations = userDetails.getDesignations();
+
+            // org-read and user-read must agree on ministryOrStateType before the designation rule is
+            // allowed to use it — a mismatch (or either side unresolved) disables that rule for this
+            // request rather than trusting a possibly-stale org-read value.
+            String ministryOrStateType = null;
+            if (StringUtils.isNotBlank(orgMinistryOrStateType) && orgMinistryOrStateType.equals(userDetails.getMinistryOrStateType())) {
+                ministryOrStateType = orgMinistryOrStateType;
+            } else {
+                log.info("FormsConfigurationServiceImpl::readFormConfig: ministryOrStateType mismatch or unresolved (org-read={}, user-read={}) for userId={} — designation rule will not apply",
+                        orgMinistryOrStateType, userDetails.getMinistryOrStateType(), userId);
+            }
 
             FormConfigResolutionContext ctx = FormConfigResolutionContext.builder()
                     .type(type).subtype(subtype).portal(portal).clientVersion(clientVersion)
@@ -170,7 +182,13 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             }
 
             Map<String, Object> requestData = (Map<String, Object>) request.get(Constants.Parameters.REQUEST);
-            
+
+            String name = requestData.get(Constants.NAME).toString();
+            if (formConfigurationRepository.existsByName(name)) {
+                ProjectUtil.returnErrorMsg(Constants.ResponseMessages.FIELD_NAME_ALREADY_EXISTS, HttpStatus.CONFLICT, response, Constants.FAILED);
+                return response;
+            }
+
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
             String formattedCurrentTime = getFormattedCurrentTime(currentTime);
 
@@ -179,15 +197,21 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             configurationEntity.setUpdatedAt(formattedCurrentTime);
             configurationEntity.setCreatedBy(userDetails.getUserId());
             configurationEntity.setUpdatedBy(userDetails.getUserId());
-            configurationEntity.setName(requestData.get(Constants.NAME).toString());
+            configurationEntity.setName(name);
             configurationEntity.setType(requestData.get(Constants.TYPE).toString());
             configurationEntity.setPortal(requestData.get(Constants.PORTAL).toString());
             configurationEntity.setSubtype(requestData.get(Constants.SUBTYPE).toString());
             configurationEntity.setClientVersion(Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
+            if (requestData.containsKey(Constants.CRITERIA)) {
+                configurationEntity.setCriteria(objectMapper.valueToTree(requestData.get(Constants.CRITERIA)));
+            }
+            if (requestData.containsKey(Constants.DATA)) {
+                configurationEntity.setData(objectMapper.valueToTree(requestData.get(Constants.DATA)));
+            }
 
             // Save to database
             formConfigurationRepository.save(configurationEntity);
-            
+
             Map<String, Object> result = new HashMap<>();
             result.put("id", configurationEntity.getId());
             result.put(Constants.NAME, configurationEntity.getName());
@@ -195,6 +219,12 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             result.put(Constants.SUBTYPE, configurationEntity.getSubtype());
             result.put(Constants.PORTAL, configurationEntity.getPortal());
             result.put(Constants.CLIENT_VERSION, configurationEntity.getClientVersion());
+            if (configurationEntity.getCriteria() != null) {
+                result.put(Constants.CRITERIA, objectMapper.convertValue(configurationEntity.getCriteria(), Map.class));
+            }
+            if (configurationEntity.getData() != null) {
+                result.put(Constants.DATA, objectMapper.convertValue(configurationEntity.getData(), Map.class));
+            }
 
             // Set success response
             response.put(Constants.CREATED_ON, configurationEntity.getCreatedAt());

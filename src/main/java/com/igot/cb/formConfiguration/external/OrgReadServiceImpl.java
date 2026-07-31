@@ -1,6 +1,7 @@
 package com.igot.cb.formConfiguration.external;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
 import com.igot.cb.util.Constants;
 import com.igot.cb.util.PropertiesCache;
@@ -18,13 +19,13 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Map;
 
 /**
- * Calls the org-read service to resolve {@code ministryOrStateType} for a rootOrgId.
+ * Calls the org-read service to resolve {@code ministryOrStateId} for a rootOrgId.
  * Cached (org->ministry mappings are effectively static reference data) so the designation+ministry
  * rule doesn't hit the downstream service on every read.
  *
  * Contract (confirmed against the real service): {@code POST {baseUrl}} with body
  * {@code {"request": {"organisationId": "<id>"}}}; the field lives at
- * {@code result.response.ministryOrStateType} in the response.
+ * {@code result.response.ministryOrStateId} in the response.
  */
 @Service
 @Slf4j
@@ -38,6 +39,9 @@ public class OrgReadServiceImpl implements OrgReadService {
     @Autowired
     private CacheService cacheService;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     private static PropertiesCache cache = PropertiesCache.getInstance();
     private static final String orgServiceEndpoint = cache.getProperty(Constants.LMS_SER_HOST)+Constants.ORG_READ_BASE_URL;
 
@@ -49,7 +53,11 @@ public class OrgReadServiceImpl implements OrgReadService {
         String cacheKey = CACHE_KEY_PREFIX + rootOrgId;
         String cached = cacheService.getCache(cacheKey);
         if (cached != null) {
-            return cached;
+            try {
+                return objectMapper.readValue(cached, String.class);
+            } catch (Exception e) {
+                log.warn("OrgReadServiceImpl: failed to deserialize cached ministryOrStateType for rootOrgId {}: {}", rootOrgId, e.getMessage());
+            }
         }
         try {
            
@@ -76,7 +84,7 @@ public class OrgReadServiceImpl implements OrgReadService {
         if (response == null) {
             return null;
         }
-        JsonNode value = response.path("result").path("response").path(Constants.MINISTRY_OR_STATE_TYPE);
+        JsonNode value = response.path("result").path("response").path(Constants.MINISTRY_OR_STATE_ID);
         return value.isMissingNode() || value.isNull() ? null : value.asText(null);
     }
 }

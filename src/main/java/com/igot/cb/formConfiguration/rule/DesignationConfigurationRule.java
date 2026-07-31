@@ -11,19 +11,17 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Rule 1 — highest priority. Matches a form config scoped to the caller's designation AND their
- * org's ministryOrStateType (6 attributes total: type, subtype, portal, clientVersion, designation,
- * ministryOrStateType). Tries the caller's own ministryOrStateType first; if nothing matches there,
- * falls back to the "*" (public) ministryOrStateType — same wildcard shape as
- * {@link DefaultConfigurationRule}'s rootOrg fallback. Only applies when designation and
- * ministryOrStateType are resolved; falls through to {@link DefaultConfigurationRule} otherwise or
- * when no such row exists.
+ * Rule 1 — highest priority. Matches a form config scoped to the caller's designation and a rootOrg
+ * value chosen by whether the caller's ministryOrStateType has been verified (upstream, in
+ * FormsConfigurationServiceImpl) to match their org's: the caller's actual rootOrg when verified, or
+ * "*" (public) when it hasn't been. Only applies when the caller has at least one designation; falls
+ * through to {@link DefaultConfigurationRule} otherwise or when no such row exists.
  */
 @Component
 public class DesignationConfigurationRule implements FormConfigLookupRule {
 
     private static final String RULE_ID = "designationMinistry";
-    private static final String WILDCARD_MINISTRY_OR_STATE_TYPE = "*";
+    private static final String WILDCARD_ROOT_ORG = "*";
 
     @Autowired
     private FormConfigurationRepository repository;
@@ -35,21 +33,14 @@ public class DesignationConfigurationRule implements FormConfigLookupRule {
 
     @Override
     public boolean supports(FormConfigResolutionContext ctx) {
-        return CollectionUtils.isNotEmpty(ctx.getDesignations()) && StringUtils.isNotBlank(ctx.getMinistryOrStateType());
+        return CollectionUtils.isNotEmpty(ctx.getDesignations());
     }
 
     @Override
     public Optional<FormConfigurationEntity> find(FormConfigResolutionContext ctx) {
-        Optional<FormConfigurationEntity> found = repository.getFormConfigByDesignationAndMinistry(
-                ctx.getType(), ctx.getSubtype(), ctx.getPortal(), ctx.getClientVersion(),
-                ctx.getMinistryOrStateType(), ctx.getDesignations()
-        );
-        if (found.isPresent() || WILDCARD_MINISTRY_OR_STATE_TYPE.equals(ctx.getMinistryOrStateType())) {
-            return found;
-        }
-        return repository.getFormConfigByDesignationAndMinistry(
-                ctx.getType(), ctx.getSubtype(), ctx.getPortal(), ctx.getClientVersion(),
-                WILDCARD_MINISTRY_OR_STATE_TYPE, ctx.getDesignations()
+        String rootOrg = StringUtils.isNotBlank(ctx.getMinistryOrStateType()) ? ctx.getRootOrg() : WILDCARD_ROOT_ORG;
+        return repository.getFormConfigByDesignationAndRootOrg(
+                ctx.getType(), ctx.getSubtype(), ctx.getPortal(), ctx.getClientVersion(), rootOrg, ctx.getDesignations()
         );
     }
 
@@ -59,7 +50,8 @@ public class DesignationConfigurationRule implements FormConfigLookupRule {
                 .filter(StringUtils::isNotBlank)
                 .sorted()
                 .collect(Collectors.joining("|"));
+        String rootOrg = StringUtils.isNotBlank(ctx.getMinistryOrStateType()) ? ctx.getRootOrg() : WILDCARD_ROOT_ORG;
         return FormConfigCacheKeys.build(RULE_ID, ctx.getType(), ctx.getSubtype(), ctx.getPortal(), ctx.getClientVersion(),
-                ctx.getMinistryOrStateType(), null, designationSegment);
+                rootOrg, null, designationSegment);
     }
 }
