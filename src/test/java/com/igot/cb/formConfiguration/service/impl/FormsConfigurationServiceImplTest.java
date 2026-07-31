@@ -101,7 +101,6 @@ class FormsConfigurationServiceImplTest {
     void readFormConfig_admin_found() {
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(orgReadService.getMinistryOrStateType(eq("ignored-org"), isNull())).thenReturn(null);
-        when(userDesignationService.getDesignations(eq("admin1"), isNull())).thenReturn(List.of());
         when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
@@ -123,7 +122,6 @@ class FormsConfigurationServiceImplTest {
     void readFormConfig_admin_notFound() {
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(orgReadService.getMinistryOrStateType(any(), any())).thenReturn(null);
-        when(userDesignationService.getDesignations(any(), any())).thenReturn(List.of());
         when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.empty());
 
         ApiResponse response = service.readFormConfig(getRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
@@ -136,7 +134,6 @@ class FormsConfigurationServiceImplTest {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(orgReadService.getMinistryOrStateType(eq("org1"), eq("token"))).thenReturn(null);
-        when(userDesignationService.getDesignations(eq("user1"), eq("token"))).thenReturn(List.of());
         when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
@@ -154,7 +151,6 @@ class FormsConfigurationServiceImplTest {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
         when(orgReadService.getMinistryOrStateType(any(), any())).thenReturn(null);
-        when(userDesignationService.getDesignations(any(), any())).thenReturn(List.of());
         when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.empty());
 
         ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);

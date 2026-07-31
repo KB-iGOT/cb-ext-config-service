@@ -13,6 +13,8 @@ import java.util.Optional;
 @Repository
 public interface FormConfigurationRepository extends JpaRepository<FormConfigurationEntity,Long> {
 
+    boolean existsByName(String name);
+
     /**
      * Fallback rule for rows with no criteria at all (e.g. created via /v2/create, which never sets
      * criteria) — plain match on the compound key, no role/org/designation scoping.
@@ -21,9 +23,10 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
             String type, String subtype, String portal, Double clientVersion);
 
     /**
-     * Rule 1: matches a row scoped to the same ministryOrStateType — stored in the criteria column
-     * under the 'rootOrg' key, same as rule 2 — whose designation array overlaps the user's
-     * designations (a user can hold more than one designation).
+     * Rule 1: matches a row scoped to a rootOrg value chosen by the caller — the caller's actual
+     * rootOrg when the caller's ministryOrStateType has been verified to match their org's, or "*"
+     * when it hasn't — whose designation array overlaps the user's designations (a user can hold more
+     * than one designation).
      */
     @Query(value = """
     SELECT *
@@ -32,19 +35,19 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
       AND subtype = :subtype
       AND portal = :portal
       AND client_version = :clientVersion
-      AND criteria ->> 'rootOrg' = :ministryOrStateType
+      AND criteria ->> 'rootOrg' = :rootOrg
       AND EXISTS (
           SELECT 1 FROM jsonb_array_elements_text(criteria -> 'designation') AS d(designation)
           WHERE d.designation IN (:designations)
       )
     LIMIT 1
     """, nativeQuery = true)
-    Optional<FormConfigurationEntity> getFormConfigByDesignationAndMinistry(
+    Optional<FormConfigurationEntity> getFormConfigByDesignationAndRootOrg(
             @Param("type") String type,
             @Param("subtype") String subtype,
             @Param("portal") String portal,
             @Param("clientVersion") Double clientVersion,
-            @Param("ministryOrStateType") String ministryOrStateType,
+            @Param("rootOrg") String rootOrg,
             @Param("designations") List<String> designations
     );
 
