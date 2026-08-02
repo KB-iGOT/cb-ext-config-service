@@ -20,8 +20,7 @@ import java.util.List;
 
 /**
  * Confirmed contract: GET {@code {baseUrl}/{userId}}, response carrying the user's designations at
- * {@code result.response.profileDetails.professionalDetails[].designation} and the user's own
- * ministryOrStateId at {@code result.response.rootOrg.ministryOrStateId}.
+ * {@code result.response.profileDetails.professionalDetails[].designation}.
  */
 @Service
 @Slf4j
@@ -49,7 +48,6 @@ public class UserDesignationServiceImpl implements UserDesignationService {
             String url = userReadEndpoint + "/" + userId;
             JsonNode response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), JsonNode.class).getBody();
             userDetails.setDesignations(extractDesignations(response));
-            userDetails.setMinistryOrStateType(extractMinistryOrStateType(response));
         } catch (Exception e) {
             log.warn("UserDesignationServiceImpl: failed to resolve user profile for userId {}: {}", userId, e.getMessage());
         }
@@ -71,14 +69,5 @@ public class UserDesignationServiceImpl implements UserDesignationService {
             }
         }
         return designations;
-    }
-
-    private String extractMinistryOrStateType(JsonNode response) {
-        if (response == null) {
-            return null;
-        }
-        JsonNode value = response.path("result").path("response")
-                .path("rootOrg").path(Constants.MINISTRY_OR_STATE_ID);
-        return value.isMissingNode() || value.isNull() ? null : value.asText(null);
     }
 }

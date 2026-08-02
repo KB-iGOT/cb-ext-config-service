@@ -19,13 +19,13 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Map;
 
 /**
- * Calls the org-read service to resolve {@code ministryOrStateId} for a rootOrgId.
- * Cached (org->ministry mappings are effectively static reference data) so the designation+ministry
- * rule doesn't hit the downstream service on every read.
+ * Calls the org-read service to resolve {@code ministryOrStateType} (e.g. "ministry", "state") for a
+ * rootOrgId. Cached (org->ministry mappings are effectively static reference data) so the
+ * designation+ministry rule doesn't hit the downstream service on every read.
  *
  * Contract (confirmed against the real service): {@code POST {baseUrl}} with body
  * {@code {"request": {"organisationId": "<id>"}}}; the field lives at
- * {@code result.response.ministryOrStateId} in the response.
+ * {@code result.response.ministryOrStateType} in the response.
  */
 @Service
 @Slf4j
@@ -84,7 +84,7 @@ public class OrgReadServiceImpl implements OrgReadService {
         if (response == null) {
             return null;
         }
-        JsonNode value = response.path("result").path("response").path(Constants.MINISTRY_OR_STATE_ID);
+        JsonNode value = response.path("result").path("response").path(Constants.MINISTRY_OR_STATE_TYPE);
         return value.isMissingNode() || value.isNull() ? null : value.asText(null);
     }
 }
