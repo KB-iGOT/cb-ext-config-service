@@ -12,7 +12,49 @@ import java.util.Optional;
 
 @Repository
 public interface FormConfigurationRepository extends JpaRepository<FormConfigurationEntity,Long> {
-   @Query(value = """
+
+    boolean existsByName(String name);
+
+    /**
+     * Fallback rule for rows with no criteria at all (e.g. created via /v2/create, which never sets
+     * criteria) — plain match on the compound key, no role/org/designation scoping.
+     */
+    Optional<FormConfigurationEntity> findByTypeAndSubtypeAndPortalAndClientVersionAndCriteriaIsNull(
+            String type, String subtype, String portal, Double clientVersion);
+
+    /**
+     * Rule 1: matches purely on designation overlap (a user can hold more than one designation).
+     * Whether this rule is even attempted is gated upstream (in FormsConfigurationServiceImpl /
+     * DesignationConfigurationRule) on the caller's ministryOrStateType resolving to "ministry" or
+     * "state" — that check is eligibility only and is not re-verified against the row's criteria here.
+     */
+    @Query(value = """
+    SELECT *
+    FROM form_configuration
+    WHERE type = :type
+      AND subtype = :subtype
+      AND portal = :portal
+      AND client_version = :clientVersion
+      AND EXISTS (
+          SELECT 1 FROM jsonb_array_elements_text(criteria -> 'designation') AS d(designation)
+          WHERE d.designation IN (:designations)
+      )
+    LIMIT 1
+    """, nativeQuery = true)
+    Optional<FormConfigurationEntity> getFormConfigByDesignation(
+            @Param("type") String type,
+            @Param("subtype") String subtype,
+            @Param("portal") String portal,
+            @Param("clientVersion") Double clientVersion,
+            @Param("designations") List<String> designations
+    );
+
+    /**
+     * Exact match for the "default"/role-only rule: only rows with NO designation at all.
+     * Deliberately excludes rows that have some other designation set, so this rule never
+     * accidentally answers for a differently-scoped, designation-specific row.
+     */
+    @Query(value = """
     SELECT *
     FROM form_configuration
     WHERE type = :type
@@ -21,9 +63,10 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
       AND criteria ->> 'rootOrg' = :rootOrg
       AND criteria ->> 'role' IN (:roles)
       AND client_version = :clientVersion
+      AND criteria -> 'designation' IS NULL
     LIMIT 1
     """, nativeQuery = true)
-    Optional<FormConfigurationEntity> getFormConfigDataByCriteria(
+    Optional<FormConfigurationEntity> getDefaultFormConfigDataByCriteria(
             @Param("type") String type,
             @Param("subtype") String subtype,
             @Param("portal") String portal,

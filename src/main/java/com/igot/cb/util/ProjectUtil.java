@@ -3,8 +3,6 @@ package com.igot.cb.util;
 import org.joda.time.DateTime;
 import org.springframework.http.HttpStatus;
 
-import java.util.UUID;
-
 public class ProjectUtil {
 
     public static ApiResponse createDefaultResponse(String api) {

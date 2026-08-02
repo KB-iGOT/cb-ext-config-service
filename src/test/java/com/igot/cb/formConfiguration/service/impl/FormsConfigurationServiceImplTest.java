@@ -4,7 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.igot.cb.authentication.model.UserDetails;
 import com.igot.cb.authentication.util.AccessTokenValidator;
 import com.igot.cb.formConfiguration.entity.FormConfigurationEntity;
+import com.igot.cb.formConfiguration.external.OrgReadService;
+import com.igot.cb.formConfiguration.external.UserDesignationService;
 import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
+import com.igot.cb.formConfiguration.rule.FormConfigResolutionContext;
+import com.igot.cb.formConfiguration.rule.FormConfigRuleEngine;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
 import com.igot.cb.util.ApiResponse;
@@ -12,6 +16,7 @@ import com.igot.cb.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,10 +44,19 @@ class FormsConfigurationServiceImplTest {
     private ValidationService validationService;
 
     @Mock
-    private CacheService cacheService;
+    private ObjectMapper objectMapper;
 
     @Mock
-    private ObjectMapper objectMapper;
+    private FormConfigRuleEngine formConfigRuleEngine;
+
+    @Mock
+    private OrgReadService orgReadService;
+
+    @Mock
+    private UserDesignationService userDesignationService;
+
+    @Mock
+    private CacheService cacheService;
 
     private UserDetails userDetails;
 
@@ -88,106 +102,64 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
-    void createFormConfig_success() {
-        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.CREATE))).thenReturn(Constants.SUCCESSFUL);
-        when(validationService.validateFormData(anyMap())).thenReturn(null);
-        when(objectMapper.valueToTree(any())).thenReturn(mock(com.fasterxml.jackson.databind.JsonNode.class));
-        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(Map.of("field", "value"));
-
-        ApiResponse response = service.createFormConfig(getRequest(), "token");
-
-        assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService).putCache(anyString(), any());
-    }
-
-    @Test
-    void readFormConfig_roleOrgCacheHit_volunteer() throws Exception {
-        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+    void readFormConfig_admin_found() {
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn("{}");
-        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new HashMap<>());
-
-        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
-
-        assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(repository, never()).getFormConfigDataByCriteria(any(), any(), any(), any(), any(), any());
-    }
-
-    @Test
-    void readFormConfig_roleOrgDbHit_volunteer() {
-        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.of(entity()));
+        when(orgReadService.getMinistryOrStateType(eq("ignored-org"), isNull())).thenReturn(null);
+        when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
-        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
+        ApiResponse response = service.readFormConfig(getRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService, atLeastOnce()).putCache(anyString(), any());
+        ArgumentCaptor<FormConfigResolutionContext> ctxCaptor = ArgumentCaptor.forClass(FormConfigResolutionContext.class);
+        verify(formConfigRuleEngine).resolve(ctxCaptor.capture());
+        FormConfigResolutionContext ctx = ctxCaptor.getValue();
+        assertEquals("page", ctx.getType());
+        assertEquals("player test", ctx.getSubtype());
+        assertEquals("mobile", ctx.getPortal());
+        assertEquals(1.0, ctx.getClientVersion());
+        assertEquals("ignored-org", ctx.getRootOrg());
+        assertEquals(List.of("IGNORED"), ctx.getRoles());
     }
 
     @Test
-    void readFormConfig_roleWildcardCacheHit_public() throws Exception {
-        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+    void readFormConfig_admin_notFound() {
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null).thenReturn("{}");
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.empty());
-        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new HashMap<>());
-
-        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
-
-        assertEquals(HttpStatus.OK, response.getResponseCode());
-    }
-
-    @Test
-    void readFormConfig_roleWildcardDbHit_public() {
-        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.empty());
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("*"), any(), any()))
-                .thenReturn(Optional.of(entity()));
-        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
-
-        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
-
-        assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService, atLeastOnce()).putCache(anyString(), any());
-    }
-
-    @Test
-    void readFormConfig_adminUsesPayloadCriteria() {
-        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.empty());
+        when(orgReadService.getMinistryOrStateType(any(), any())).thenReturn(null);
+        when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.empty());
 
         ApiResponse response = service.readFormConfig(getRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
-        verify(repository).getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any());
     }
 
     @Test
-    void updateFormConfig_success() {
+    void readFormConfig_volunteer_found() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.of(entity()));
-        when(objectMapper.valueToTree(any())).thenReturn(mock(com.fasterxml.jackson.databind.JsonNode.class));
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
+        when(orgReadService.getMinistryOrStateType(eq("org1"), eq("token"))).thenReturn(null);
+        when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
-        ApiResponse response = service.updateFormConfig(getRequest(), "token");
+        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService).putCache(anyString(), any());
+        ArgumentCaptor<FormConfigResolutionContext> ctxCaptor = ArgumentCaptor.forClass(FormConfigResolutionContext.class);
+        verify(formConfigRuleEngine).resolve(ctxCaptor.capture());
+        assertEquals("org1", ctxCaptor.getValue().getRootOrg());
+        assertEquals(List.of("PUBLIC"), ctxCaptor.getValue().getRoles());
+    }
+
+    @Test
+    void readFormConfig_volunteer_notFound() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
+        when(orgReadService.getMinistryOrStateType(any(), any())).thenReturn(null);
+        when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.empty());
+
+        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
     }
 
     @Test
@@ -235,7 +207,7 @@ class FormsConfigurationServiceImplTest {
     void updateFormConfigV2_success() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
-        
+
         FormConfigurationEntity original = entity();
         original.setId(1L);
         when(repository.findById(1L)).thenReturn(Optional.of(original));
@@ -259,4 +231,3 @@ class FormsConfigurationServiceImplTest {
         assertEquals(HttpStatus.OK, response.getResponseCode());
     }
 }
-

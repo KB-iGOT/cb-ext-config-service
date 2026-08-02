@@ -1,32 +1,20 @@
 package com.igot.cb.formConfiguration.service.Validation;
 
-import com.igot.cb.formConfiguration.entity.FormConfigurationEntity;
-import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
-import com.igot.cb.util.ApiResponse;
 import com.igot.cb.util.Constants;
-import com.igot.cb.util.ProjectUtil;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jclouds.rest.annotations.Api;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 @Service
 public class ValidationService {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(ValidationService.class);
-
-    @Autowired
-    private FormConfigurationRepository formConfigurationRepository;
 
     public String validateForm(Map<String,Object> formRequest, String operation) {
         String validationMsg = Constants.SUCCESSFUL;
@@ -72,17 +60,27 @@ public class ValidationService {
 
                    Map<String, Object> criteria = (Map<String, Object>) requestObject.get(Constants.CRITERIA);
 
-                   if (!(criteria.get(Constants.ROLE) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROLE))) {
-                       validationMsg = Constants.ResponseMessages.FIELD_ROLE_MISSING;
-                   }
-                   if (!(criteria.get(Constants.ROOTORG) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROOTORG))) {
-                       validationMsg = Constants.ResponseMessages.FIELD_ROOTORG_MISSING;
+                   // A config's criteria is either designation+ministryOrStateType scoped (rule 1)
+                   // or role+rootOrg scoped (rule 2) — the two shapes are mutually exclusive.
+                   // ministryOrStateType is stored under the 'rootOrg' key in criteria, same as rule 2.
+                   if (ObjectUtils.isNotEmpty(criteria.get(Constants.DESIGNATION))) {
+                       if (!(criteria.get(Constants.ROOTORG) instanceof String) ||
+                               StringUtils.isBlank((String) criteria.get(Constants.ROOTORG))) {
+                           validationMsg = Constants.ResponseMessages.FIELD_MINISTRY_OR_STATE_TYPE_MISSING;
+                       }
+                   } else {
+                       if (!(criteria.get(Constants.ROLE) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROLE))) {
+                           validationMsg = Constants.ResponseMessages.FIELD_ROLE_MISSING;
+                       }
+                       if (!(criteria.get(Constants.ROOTORG) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROOTORG))) {
+                           validationMsg = Constants.ResponseMessages.FIELD_ROOTORG_MISSING;
+                       }
                    }
                }
 
         }
         if (Constants.Parameters.READ.equalsIgnoreCase(operation) ) {
-            if(ObjectUtils.isNotEmpty(requestObject.get(Constants.CRITERIA)) || ObjectUtils.isNotEmpty(requestObject.get(Constants.DATA)) ){
+            if(ObjectUtils.isNotEmpty(requestObject.get(Constants.DATA)) ){
                 validationMsg = Constants.ResponseMessages.BAD_REQUEST;
             }
         }
@@ -94,22 +92,6 @@ public class ValidationService {
         return  validationMsg;
     }
 
-
-    public FormConfigurationEntity validateFormData(Map<String, Object> request) {
-        Map<String, Object> criteria = (Map<String, Object>) request.get(Constants.CRITERIA);
-
-        Optional<FormConfigurationEntity> formConfigurationEntity =
-                formConfigurationRepository.getFormConfigDataByCriteria(
-                        request.get(Constants.TYPE).toString(),
-                        request.get(Constants.SUBTYPE).toString(),
-                        request.get(Constants.PORTAL).toString(),
-                        criteria.get(Constants.ROOTORG).toString(),
-                        Collections.singletonList(criteria.get(Constants.ROLE).toString()),
-                        Double.valueOf(request.get(Constants.CLIENT_VERSION).toString())
-                );
-
-        return formConfigurationEntity.orElse(null);
-    }
 
     public String validateV2CreateForm(Map<String, Object> formRequest) {
         if (MapUtils.isEmpty(formRequest)) {
@@ -125,7 +107,9 @@ public class ValidationService {
                     !Constants.TYPE.equals(key) &&
                     !Constants.SUBTYPE.equals(key) &&
                     !Constants.PORTAL.equals(key) &&
-                    !Constants.CLIENT_VERSION.equals(key)) {
+                    !Constants.CLIENT_VERSION.equals(key) &&
+                    !Constants.CRITERIA.equals(key) &&
+                    !Constants.DATA.equals(key)) {
                 return Constants.ResponseMessages.BAD_REQUEST;
             }
         }
