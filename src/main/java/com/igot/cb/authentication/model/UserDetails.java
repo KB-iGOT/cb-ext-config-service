@@ -14,6 +14,5 @@ public class UserDetails {
     private List<String> userRoles;
     private String userId;
     private List<String> designations;
-    private String ministryOrStateType;
 
 }

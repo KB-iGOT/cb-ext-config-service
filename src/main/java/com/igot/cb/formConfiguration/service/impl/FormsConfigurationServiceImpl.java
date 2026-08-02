@@ -10,6 +10,7 @@ import com.igot.cb.formConfiguration.external.UserDesignationService;
 import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
 import com.igot.cb.formConfiguration.rule.FormConfigResolutionContext;
 import com.igot.cb.formConfiguration.rule.FormConfigRuleEngine;
+import com.igot.cb.formConfiguration.service.cache.CacheService;
 import com.igot.cb.formConfiguration.service.FormsConfigurationService;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.util.ApiResponse;
@@ -17,7 +18,6 @@ import com.igot.cb.util.Constants;
 import com.igot.cb.util.ProjectUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -53,6 +53,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
     @Autowired
     private UserDesignationService userDesignationService;
+
+    @Autowired
+    private CacheService cacheService;
 
     @Override
     public ApiResponse readFormConfig(Map<String, Object> formConfigData, String authTokenOrUserId,String userOrg,List<String> userRoles,boolean isAdmin) {
@@ -95,27 +98,40 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             String portal = requestData.get(Constants.PORTAL).toString();
             Double clientVersion = Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString());
 
-            // rule 1 dimensions: the org's ministryOrStateType and the user's own designation(s),
-            // both resolved from the user/org services rather than the request payload.
-            String orgMinistryOrStateType = orgReadService.getMinistryOrStateType(rootOrg, token);
+            // Rule 1 (designation) rootOrg, priority-resolved:
+            // 1st priority ("ministry"): the caller's own rootOrg (from token) is checked first; only
+            //               if it's NOT a "ministry" do we fall back to checking the request's
+            //               explicit rootOrg for "ministry" (skipping that org-read call entirely
+            //               when the token's rootOrg already resolved it).
+            // 2nd priority ("state"): the caller's own rootOrg (from token), reusing the same
+            //               already-resolved type — no second org-read call needed.
+            // Neither -> designationRootOrg stays null, so the designation rule doesn't apply at all.
+            String designationRootOrg = null;
+            String tokenOrgType = orgReadService.getMinistryOrStateType(rootOrg, token);
+            if (Constants.MINISTRY.equalsIgnoreCase(tokenOrgType)) {
+                designationRootOrg = rootOrg;
+            } else {
+                String inputRootOrg = null;
+                Object inputRootOrgValue = requestData.get(Constants.ROOTORG);
+                if (ObjectUtils.isNotEmpty(inputRootOrgValue) && !"*".equals(inputRootOrgValue.toString())) {
+                    inputRootOrg = inputRootOrgValue.toString();
+                }
+                if (inputRootOrg != null && Constants.MINISTRY.equalsIgnoreCase(orgReadService.getMinistryOrStateType(inputRootOrg, token))) {
+                    designationRootOrg = inputRootOrg;
+                }
+            }
+
+            if (designationRootOrg == null && Constants.STATE.equalsIgnoreCase(tokenOrgType)) {
+                designationRootOrg = rootOrg;
+            }
+
             userDesignationService.resolveUserProfile(userDetails, token);
             List<String> designations = userDetails.getDesignations();
-
-            // org-read and user-read must agree on ministryOrStateType before the designation rule is
-            // allowed to use it — a mismatch (or either side unresolved) disables that rule for this
-            // request rather than trusting a possibly-stale org-read value.
-            String ministryOrStateType = null;
-            if (StringUtils.isNotBlank(orgMinistryOrStateType) && orgMinistryOrStateType.equals(userDetails.getMinistryOrStateType())) {
-                ministryOrStateType = orgMinistryOrStateType;
-            } else {
-                log.info("FormsConfigurationServiceImpl::readFormConfig: ministryOrStateType mismatch or unresolved (org-read={}, user-read={}) for userId={} — designation rule will not apply",
-                        orgMinistryOrStateType, userDetails.getMinistryOrStateType(), userId);
-            }
 
             FormConfigResolutionContext ctx = FormConfigResolutionContext.builder()
                     .type(type).subtype(subtype).portal(portal).clientVersion(clientVersion)
                     .roles(roles).rootOrg(rootOrg)
-                    .designations(designations).ministryOrStateType(ministryOrStateType)
+                    .designations(designations).designationRootOrg(designationRootOrg)
                     .build();
 
             Optional<FormConfigurationEntity> match = formConfigRuleEngine.resolve(ctx);
@@ -160,6 +176,17 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         ZonedDateTime zonedDateTime = currentTime.toInstant().atZone(ZoneId.systemDefault());
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(Constants.TIME_FORMAT);
         return zonedDateTime.format(formatter);
+    }
+
+    /**
+     * Clears every FormConfigRuleEngine cache entry for a (type, subtype, portal, clientVersion)
+     * tuple, regardless of which rule/rootOrg/role/designation matched it — the exact key a given
+     * entity was cached under depends on the resolving caller, not the entity itself.
+     */
+    private void invalidateFormConfigCache(String type, String subtype, String portal, Double clientVersion) {
+        String pattern = String.join(Constants.DOT_SEPARATOR,
+                Constants.FORM_CONFIG_RESULT, "*", type, subtype, portal, String.valueOf(clientVersion), "*");
+        cacheService.deleteCacheByPattern(pattern);
     }
 
     @Override
@@ -312,6 +339,10 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             }
 
             FormConfigurationEntity originalData = existingOpt.get();
+            String oldType = originalData.getType();
+            String oldSubtype = originalData.getSubtype();
+            String oldPortal = originalData.getPortal();
+            Double oldClientVersion = originalData.getClientVersion();
 
             if (requestData.containsKey(Constants.NAME)) {
                 originalData.setName(requestData.get(Constants.NAME).toString());
@@ -343,6 +374,15 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             originalData.setUpdatedAt(formattedCurrentTime);
 
             formConfigurationRepository.save(originalData);
+
+            // The rule engine caches resolved entities keyed by (type, subtype, portal, clientVersion,
+            // ...); invalidate under the old tuple (covers the common case of criteria/data changing
+            // in place) and, if any of those four fields changed, also under the new tuple.
+            invalidateFormConfigCache(oldType, oldSubtype, oldPortal, oldClientVersion);
+            if (!Objects.equals(oldType, originalData.getType()) || !Objects.equals(oldSubtype, originalData.getSubtype())
+                    || !Objects.equals(oldPortal, originalData.getPortal()) || !Objects.equals(oldClientVersion, originalData.getClientVersion())) {
+                invalidateFormConfigCache(originalData.getType(), originalData.getSubtype(), originalData.getPortal(), originalData.getClientVersion());
+            }
 
             Map<String, Object> result = new HashMap<>();
             result.put("id", originalData.getId());

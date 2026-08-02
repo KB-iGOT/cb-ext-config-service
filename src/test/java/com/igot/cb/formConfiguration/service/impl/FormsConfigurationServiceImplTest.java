@@ -10,6 +10,7 @@ import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
 import com.igot.cb.formConfiguration.rule.FormConfigResolutionContext;
 import com.igot.cb.formConfiguration.rule.FormConfigRuleEngine;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
+import com.igot.cb.formConfiguration.service.cache.CacheService;
 import com.igot.cb.util.ApiResponse;
 import com.igot.cb.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,9 @@ class FormsConfigurationServiceImplTest {
 
     @Mock
     private UserDesignationService userDesignationService;
+
+    @Mock
+    private CacheService cacheService;
 
     private UserDetails userDetails;
 

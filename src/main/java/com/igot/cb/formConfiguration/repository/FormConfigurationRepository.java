@@ -23,10 +23,10 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
             String type, String subtype, String portal, Double clientVersion);
 
     /**
-     * Rule 1: matches a row scoped to a rootOrg value chosen by the caller — the caller's actual
-     * rootOrg when the caller's ministryOrStateType has been verified to match their org's, or "*"
-     * when it hasn't — whose designation array overlaps the user's designations (a user can hold more
-     * than one designation).
+     * Rule 1: matches purely on designation overlap (a user can hold more than one designation).
+     * Whether this rule is even attempted is gated upstream (in FormsConfigurationServiceImpl /
+     * DesignationConfigurationRule) on the caller's ministryOrStateType resolving to "ministry" or
+     * "state" — that check is eligibility only and is not re-verified against the row's criteria here.
      */
     @Query(value = """
     SELECT *
@@ -35,19 +35,17 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
       AND subtype = :subtype
       AND portal = :portal
       AND client_version = :clientVersion
-      AND criteria ->> 'rootOrg' = :rootOrg
       AND EXISTS (
           SELECT 1 FROM jsonb_array_elements_text(criteria -> 'designation') AS d(designation)
           WHERE d.designation IN (:designations)
       )
     LIMIT 1
     """, nativeQuery = true)
-    Optional<FormConfigurationEntity> getFormConfigByDesignationAndRootOrg(
+    Optional<FormConfigurationEntity> getFormConfigByDesignation(
             @Param("type") String type,
             @Param("subtype") String subtype,
             @Param("portal") String portal,
             @Param("clientVersion") Double clientVersion,
-            @Param("rootOrg") String rootOrg,
             @Param("designations") List<String> designations
     );
 
