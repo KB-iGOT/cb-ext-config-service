@@ -10,10 +10,13 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 
 /**
- * Rule 2 — fallback. Matches a form config by role + rootOrg (+ type/subtype/portal/clientVersion).
- * Tries the caller's own rootOrg first; if nothing matches there, falls back to the "*" (public)
- * rootOrg. Always applicable as long as role and rootOrg are known — this is the catch-all every
- * request eventually falls through to when the designation+ministry rule doesn't apply or misses.
+ * Rule 2 — fallback. Matches a form config by role + rootOrg (+ type/subtype/portal/clientVersion),
+ * regardless of whether the row also carries a designation — a row the designation rule couldn't
+ * answer (caller has no matching designation, or the ministry/state gate didn't resolve) is still
+ * eligible here on role+rootOrg alone. Tries the caller's own rootOrg first; if nothing matches
+ * there, falls back to the "*" (public) rootOrg. Always applicable as long as role and rootOrg are
+ * known — this is the catch-all every request eventually falls through to when the
+ * designation+ministry rule doesn't apply or misses.
  */
 @Component
 public class DefaultConfigurationRule implements FormConfigLookupRule {
