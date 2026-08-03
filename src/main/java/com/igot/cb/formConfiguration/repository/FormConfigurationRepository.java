@@ -63,6 +63,7 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
       AND criteria ->> 'rootOrg' = :rootOrg
       AND criteria ->> 'role' IN (:roles)
       AND client_version = :clientVersion
+      AND criteria -> 'designation' IS NULL
     LIMIT 1
     """, nativeQuery = true)
     Optional<FormConfigurationEntity> getDefaultFormConfigDataByCriteria(
