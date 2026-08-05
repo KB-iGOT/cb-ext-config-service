@@ -80,11 +80,22 @@ public class OrgReadServiceImpl implements OrgReadService {
         }
     }
 
+    /**
+     * Prefers sbOrgType; if that isn't resolved (missing/blank) on the same org-read response,
+     * falls back to ministryOrStateType instead — either one resolving to "ministry"/"state" is
+     * sufficient for the caller.
+     */
     private String extractMinistryOrStateType(JsonNode response) {
         if (response == null) {
             return null;
         }
-        JsonNode value = response.path("result").path("response").path(Constants.MINISTRY_OR_STATE_TYPE);
+        JsonNode responseNode = response.path("result").path("response");
+        JsonNode sbOrgTypeNode = responseNode.path(Constants.SB_ORG_TYPE);
+        String sbOrgType = sbOrgTypeNode.isMissingNode() || sbOrgTypeNode.isNull() ? null : sbOrgTypeNode.asText(null);
+        if (StringUtils.isNotBlank(sbOrgType)) {
+            return sbOrgType;
+        }
+        JsonNode value = responseNode.path(Constants.MINISTRY_OR_STATE_TYPE);
         return value.isMissingNode() || value.isNull() ? null : value.asText(null);
     }
 }

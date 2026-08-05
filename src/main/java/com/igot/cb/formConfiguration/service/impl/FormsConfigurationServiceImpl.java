@@ -152,7 +152,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         } catch (Exception e) {
             log.error("Failed to read form Read: {}", e.getMessage(), e);
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-            response.getParams().setErrMsg("FAILED_TO_READ_FORM");
+            response.getParams().setErrMsg(Constants.FAILED);
             response.getParams().setStatus(Constants.FAILED);
         }
 
@@ -261,7 +261,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
         } catch (Exception e) {
             log.error("Failed to create createFormConfigV2: {}", e.getMessage(), e);
-            ProjectUtil.returnErrorMsg(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
+            ProjectUtil.returnErrorMsg(Constants.FAILED, HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
             return response;
         }
         return response;
@@ -296,7 +296,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         } catch (Exception e) {
             log.error("Failed to read form by id: {}", e.getMessage(), e);
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-            response.getParams().setErrMsg("FAILED_TO_READ_FORM");
+            response.getParams().setErrMsg(Constants.FAILED);
             response.getParams().setStatus(Constants.FAILED);
         }
         return response;
@@ -404,8 +404,8 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             response.setResult(result);
 
         } catch (Exception e) {
-            ProjectUtil.returnErrorMsg("Failed to updateFormConfigV2: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
             log.error("Failed to updateFormConfigV2: {}", e.getMessage(), e);
+            ProjectUtil.returnErrorMsg(Constants.FAILED, HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
             return response;
         }
         return response;
@@ -442,7 +442,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         } catch (Exception e) {
             log.error("Failed to list forms: {}", e.getMessage(), e);
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
-            response.getParams().setErrMsg("FAILED_TO_LIST_FORMS");
+            response.getParams().setErrMsg(Constants.FAILED);
             response.getParams().setStatus(Constants.FAILED);
         }
         return response;
