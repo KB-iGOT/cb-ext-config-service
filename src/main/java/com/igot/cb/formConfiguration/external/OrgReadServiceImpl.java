@@ -81,9 +81,11 @@ public class OrgReadServiceImpl implements OrgReadService {
     }
 
     /**
-     * Prefers sbOrgType; if that isn't resolved (missing/blank) on the same org-read response,
-     * falls back to ministryOrStateType instead — either one resolving to "ministry"/"state" is
-     * sufficient for the caller.
+     * sbOrgType is trusted only when it explicitly says "ministry" — some orgs carry an unrelated
+     * value in ministryOrStateType (e.g. "SPV") even though sbOrgType correctly identifies them as
+     * a ministry. For every other sbOrgType value (blank, or some unrelated org-category like
+     * "mdo") sbOrgType isn't useful for this ministry/state question, so ministryOrStateType is
+     * checked instead — it may still correctly say "state" even when sbOrgType said something else.
      */
     private String extractMinistryOrStateType(JsonNode response) {
         if (response == null) {
@@ -92,7 +94,7 @@ public class OrgReadServiceImpl implements OrgReadService {
         JsonNode responseNode = response.path("result").path("response");
         JsonNode sbOrgTypeNode = responseNode.path(Constants.SB_ORG_TYPE);
         String sbOrgType = sbOrgTypeNode.isMissingNode() || sbOrgTypeNode.isNull() ? null : sbOrgTypeNode.asText(null);
-        if (StringUtils.isNotBlank(sbOrgType)) {
+        if (Constants.MINISTRY.equalsIgnoreCase(sbOrgType)) {
             return sbOrgType;
         }
         JsonNode value = responseNode.path(Constants.MINISTRY_OR_STATE_TYPE);
