@@ -100,6 +100,7 @@ public interface Constants {
     public static final String ROOTORG ="rootOrg";
     public static final String DESIGNATION = "designation";
     public static final String MINISTRY_OR_STATE_TYPE = "ministryOrStateType";
+    public static final String SB_ORG_TYPE = "sbOrgType";
     public static final String MINISTRY = "ministry";
     public static final String STATE = "state";
     public static final String ORGANISATION_ID = "organisationId";

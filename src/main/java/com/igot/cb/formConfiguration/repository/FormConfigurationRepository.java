@@ -50,9 +50,9 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
     );
 
     /**
-     * Exact match for the "default"/role-only rule: only rows with NO designation at all.
-     * Deliberately excludes rows that have some other designation set, so this rule never
-     * accidentally answers for a differently-scoped, designation-specific row.
+     * Fallback match for the "default"/role+rootOrg rule. Runs after the designation rule, so it
+     * also matches rows that have a designation set — those rows just weren't answerable by the
+     * caller's own designation. No designation exclusion here: role+rootOrg alone is sufficient.
      */
     @Query(value = """
     SELECT *
