@@ -18,6 +18,7 @@ import com.igot.cb.util.Constants;
 import com.igot.cb.util.ProjectUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -168,7 +169,10 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         result.put(Constants.SUBTYPE, formConfigurationEntity.getSubtype());
         result.put(Constants.PORTAL, formConfigurationEntity.getPortal());
         Map<String, Object> dataMap = objectMapper.convertValue(formConfigurationEntity.getData(), Map.class);
+        Map<String, Object> criteriaMap = objectMapper.convertValue(formConfigurationEntity.getCriteria(), Map.class);
+        result.put(Constants.CLIENT_VERSION, formConfigurationEntity.getClientVersion());
         result.put(Constants.DATA, dataMap);
+        result.put(Constants.CRITERIA, criteriaMap);
         return result;
     }
 
@@ -187,6 +191,74 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         String pattern = String.join(Constants.DOT_SEPARATOR,
                 Constants.FORM_CONFIG_RESULT, "*", type, subtype, portal, String.valueOf(clientVersion), "*");
         cacheService.deleteCacheByPattern(pattern);
+    }
+
+    /**
+     * Two rows for the same (type, subtype, portal, clientVersion) are a "duplicate criteria" if the
+     * rule engine (FormConfigRuleEngine / §4.3 of the design doc) could resolve either one to the same
+     * incoming request, making the match non-deterministic:
+     *   - both criteria absent/null (both would fall to NoCriteriaConfigurationRule), or
+     *   - both carry a non-empty "designation" array that overlaps (both reachable via
+     *     DesignationConfigurationRule for the same caller designation), or
+     *   - both resolve to the same role + rootOrg (both reachable via DefaultConfigurationRule —
+     *     note that rule's query has no designation exclusion, so this holds even if one/both rows
+     *     also carry a designation array).
+     */
+    private boolean isDuplicateCriteria(JsonNode newCriteria, JsonNode existingCriteria) {
+        boolean newBlank = newCriteria == null || newCriteria.isNull();
+        boolean existingBlank = existingCriteria == null || existingCriteria.isNull();
+        if (newBlank && existingBlank) {
+            return true;
+        }
+        if (newBlank || existingBlank) {
+            return false;
+        }
+
+        List<String> newDesignations = extractDesignations(newCriteria);
+        List<String> existingDesignations = extractDesignations(existingCriteria);
+        if (!newDesignations.isEmpty() && !existingDesignations.isEmpty()
+                && !Collections.disjoint(newDesignations, existingDesignations)) {
+            return true;
+        }
+
+        String newRole = criteriaTextValue(newCriteria, Constants.ROLE);
+        String newRootOrg = criteriaTextValue(newCriteria, Constants.ROOTORG);
+        String existingRole = criteriaTextValue(existingCriteria, Constants.ROLE);
+        String existingRootOrg = criteriaTextValue(existingCriteria, Constants.ROOTORG);
+        return StringUtils.isNotBlank(newRole) && StringUtils.isNotBlank(newRootOrg)
+                && newRole.equalsIgnoreCase(existingRole) && newRootOrg.equalsIgnoreCase(existingRootOrg);
+    }
+
+    private List<String> extractDesignations(JsonNode criteria) {
+        JsonNode designationNode = criteria.get(Constants.DESIGNATION);
+        if (designationNode == null || !designationNode.isArray()) {
+            return Collections.emptyList();
+        }
+        List<String> designations = new ArrayList<>();
+        for (JsonNode node : designationNode) {
+            if (node != null && !node.isNull() && StringUtils.isNotBlank(node.asText())) {
+                designations.add(node.asText());
+            }
+        }
+        return designations;
+    }
+
+    private String criteriaTextValue(JsonNode criteria, String field) {
+        JsonNode node = criteria.get(field);
+        return (node == null || node.isNull()) ? null : node.asText();
+    }
+
+    /**
+     * Checks the candidate criteria against every existing row sharing the same
+     * (type, subtype, portal, clientVersion), excluding the row being updated (if any).
+     */
+    private boolean hasDuplicateCriteria(String type, String subtype, String portal, Double clientVersion,
+                                          JsonNode candidateCriteria, Long excludeId) {
+        List<FormConfigurationEntity> sameScopeConfigs = formConfigurationRepository
+                .findByTypeAndSubtypeAndPortalAndClientVersion(type, subtype, portal, clientVersion);
+        return sameScopeConfigs.stream()
+                .filter(existing -> excludeId == null || !excludeId.equals(existing.getId()))
+                .anyMatch(existing -> isDuplicateCriteria(candidateCriteria, existing.getCriteria()));
     }
 
     @Override
@@ -234,6 +306,13 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             }
             if (requestData.containsKey(Constants.DATA)) {
                 configurationEntity.setData(objectMapper.valueToTree(requestData.get(Constants.DATA)));
+            }
+
+            if (hasDuplicateCriteria(configurationEntity.getType(), configurationEntity.getSubtype(),
+                    configurationEntity.getPortal(), configurationEntity.getClientVersion(),
+                    configurationEntity.getCriteria(), null)) {
+                ProjectUtil.returnErrorMsg(Constants.ResponseMessages.FIELD_CRITERIA_ALREADY_EXISTS, HttpStatus.CONFLICT, response, Constants.FAILED);
+                return response;
             }
 
             // Save to database
@@ -345,7 +424,12 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             Double oldClientVersion = originalData.getClientVersion();
 
             if (requestData.containsKey(Constants.NAME)) {
-                originalData.setName(requestData.get(Constants.NAME).toString());
+                String newName = requestData.get(Constants.NAME).toString();
+                if (formConfigurationRepository.existsByNameAndIdNot(newName, originalData.getId())) {
+                    ProjectUtil.returnErrorMsg(Constants.ResponseMessages.FIELD_NAME_ALREADY_EXISTS, HttpStatus.CONFLICT, response, Constants.FAILED);
+                    return response;
+                }
+                originalData.setName(newName);
             }
             if (requestData.containsKey(Constants.TYPE)) {
                 originalData.setType(requestData.get(Constants.TYPE).toString());
@@ -366,6 +450,12 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             if (requestData.containsKey(Constants.DATA)) {
                 JsonNode dataNode = objectMapper.valueToTree(requestData.get(Constants.DATA));
                 originalData.setData(dataNode);
+            }
+
+            if (hasDuplicateCriteria(originalData.getType(), originalData.getSubtype(), originalData.getPortal(),
+                    originalData.getClientVersion(), originalData.getCriteria(), originalData.getId())) {
+                ProjectUtil.returnErrorMsg(Constants.ResponseMessages.FIELD_CRITERIA_ALREADY_EXISTS, HttpStatus.CONFLICT, response, Constants.FAILED);
+                return response;
             }
 
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
