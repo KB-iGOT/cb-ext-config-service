@@ -16,6 +16,19 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
     boolean existsByName(String name);
 
     /**
+     * Same uniqueness check as existsByName, but excluding the row being updated — so renaming a row
+     * to its own current name isn't flagged as a conflict.
+     */
+    boolean existsByNameAndIdNot(String name, Long id);
+
+    /**
+     * Every row sharing the same compound lookup key as a candidate create/update, regardless of its
+     * own criteria shape — the full candidate set a duplicate-criteria check needs to compare against.
+     */
+    List<FormConfigurationEntity> findByTypeAndSubtypeAndPortalAndClientVersion(
+            String type, String subtype, String portal, Double clientVersion);
+
+    /**
      * Fallback rule for rows with no criteria at all (e.g. created via /v2/create, which never sets
      * criteria) — plain match on the compound key, no role/org/designation scoping.
      */
