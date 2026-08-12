@@ -13,7 +13,7 @@ public interface FormsConfigurationService {
 
     ApiResponse createFormConfigV2(Map<String, Object> request, String token);
 
-    ApiResponse readFormConfigById(Long formId, String token);
+    ApiResponse readFormConfigById(Long formId, String token, boolean isAdmin);
 
     ApiResponse updateFormConfigV2(Map<String, Object> request, String token);
 

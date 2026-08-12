@@ -142,7 +142,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
             Optional<FormConfigurationEntity> match = formConfigRuleEngine.resolve(ctx);
             if (match.isPresent()) {
-                Map<String, Object> result = buildResult(match.get());
+                Map<String, Object> result = buildResult(match.get(), isAdmin);
                 response.put(Constants.CREATED_ON, match.get().getCreatedAt());
                 response.setResult(result);
                 response.setResponseCode(HttpStatus.OK);
@@ -167,17 +167,23 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
 
 
-    private Map<String, Object> buildResult(FormConfigurationEntity formConfigurationEntity) {
+    /**
+     * @param isAdmin whether the caller is an admin — only admin callers get "criteria" back in the
+     *                result; it's internal scoping metadata that regular callers don't need to see.
+     */
+    private Map<String, Object> buildResult(FormConfigurationEntity formConfigurationEntity, boolean isAdmin) {
         Map<String, Object> result = new HashMap<>();
         result.put(Constants.NAME, formConfigurationEntity.getName());
         result.put(Constants.TYPE, formConfigurationEntity.getType());
         result.put(Constants.SUBTYPE, formConfigurationEntity.getSubtype());
         result.put(Constants.PORTAL, formConfigurationEntity.getPortal());
         Map<String, Object> dataMap = objectMapper.convertValue(formConfigurationEntity.getData(), Map.class);
-        Map<String, Object> criteriaMap = objectMapper.convertValue(formConfigurationEntity.getCriteria(), Map.class);
         result.put(Constants.CLIENT_VERSION, formConfigurationEntity.getClientVersion());
         result.put(Constants.DATA, dataMap);
-        result.put(Constants.CRITERIA, criteriaMap);
+        if (isAdmin) {
+            Map<String, Object> criteriaMap = objectMapper.convertValue(formConfigurationEntity.getCriteria(), Map.class);
+            result.put(Constants.CRITERIA, criteriaMap);
+        }
         return result;
     }
 
@@ -368,7 +374,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
     }
 
     @Override
-    public ApiResponse readFormConfigById(Long formId, String token) {
+    public ApiResponse readFormConfigById(Long formId, String token, boolean isAdmin) {
         log.info("FormsConfigurationServiceImpl::readFormConfigById: reading form config by id: {}", formId);
         ApiResponse response = ProjectUtil.createDefaultResponse("api.form.read.v2");
         try {
@@ -388,7 +394,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 return response;
             }
 
-            Map<String, Object> result = buildResult(entityOpt.get());
+            Map<String, Object> result = buildResult(entityOpt.get(), isAdmin);
             response.put(Constants.CREATED_ON, entityOpt.get().getCreatedAt());
             response.setResult(result);
             response.setResponseCode(HttpStatus.OK);
