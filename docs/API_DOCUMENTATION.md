@@ -198,7 +198,7 @@ Performs a partial update of a configuration record queried by `id` or `formId`.
 ### 4. List Form Configurations (V2)
 Lists all form configuration mappings present in the database, returning only their non-nullable attributes.
 * **Method**: `GET`
-* **Path**: `/formsConfig/v2/admin/list`
+* **Path**: `/formsConfig/v2/list`
 * **Headers**:
   * `x-authenticated-user-token`: (Required) User authentication token.
 * **Response Payload Example**:
