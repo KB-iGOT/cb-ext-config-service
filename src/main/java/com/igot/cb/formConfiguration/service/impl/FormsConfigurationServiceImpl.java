@@ -108,9 +108,11 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             //               already-resolved type — no second org-read call needed.
             // Neither -> designationRootOrg stays null, so the designation rule doesn't apply at all.
             String designationRootOrg = null;
+            String designationMinistryOrStateType = null;
             String tokenOrgType = orgReadService.getMinistryOrStateType(rootOrg, token);
             if (Constants.MINISTRY.equalsIgnoreCase(tokenOrgType)) {
                 designationRootOrg = rootOrg;
+                designationMinistryOrStateType = Constants.MINISTRY;
             } else {
                 String inputRootOrg = null;
                 Object inputRootOrgValue = requestData.get(Constants.ROOTORG);
@@ -119,11 +121,13 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 }
                 if (inputRootOrg != null && Constants.MINISTRY.equalsIgnoreCase(orgReadService.getMinistryOrStateType(inputRootOrg, token))) {
                     designationRootOrg = inputRootOrg;
+                    designationMinistryOrStateType = Constants.MINISTRY;
                 }
             }
 
             if (designationRootOrg == null && Constants.STATE.equalsIgnoreCase(tokenOrgType)) {
                 designationRootOrg = rootOrg;
+                designationMinistryOrStateType = Constants.STATE;
             }
 
             userDesignationService.resolveUserProfile(userDetails, token);
@@ -133,6 +137,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                     .type(type).subtype(subtype).portal(portal).clientVersion(clientVersion)
                     .roles(roles).rootOrg(rootOrg)
                     .designations(designations).designationRootOrg(designationRootOrg)
+                    .designationMinistryOrStateType(designationMinistryOrStateType)
                     .build();
 
             Optional<FormConfigurationEntity> match = formConfigRuleEngine.resolve(ctx);
@@ -196,13 +201,18 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
     /**
      * Two rows for the same (type, subtype, portal, clientVersion) are a "duplicate criteria" if the
      * rule engine (FormConfigRuleEngine / §4.3 of the design doc) could resolve either one to the same
-     * incoming request, making the match non-deterministic:
+     * incoming request, making the match non-deterministic. The two underlying rules are mutually
+     * exclusive on "designation" (getDefaultFormConfigDataByCriteria explicitly requires
+     * criteria->'designation' IS NULL), so which check applies depends on whether either row declares one:
      *   - both criteria absent/null (both would fall to NoCriteriaConfigurationRule), or
-     *   - both carry a non-empty "designation" array that overlaps (both reachable via
-     *     DesignationConfigurationRule for the same caller designation), or
-     *   - both resolve to the same role + rootOrg (both reachable via DefaultConfigurationRule —
-     *     note that rule's query has no designation exclusion, so this holds even if one/both rows
-     *     also carry a designation array).
+     *   - EITHER row carries a non-empty "designation" array: only reachable via
+     *     DesignationConfigurationRule, so role/rootOrg equality is irrelevant here — flag it only when
+     *     both rows' designations overlap AND either leaves "ministryOrStateType" unset (a legacy/unscoped
+     *     row matches every caller) or their "ministryOrStateType" arrays overlap. Two rows with the same
+     *     designation list but disjoint ministryOrStateType (e.g. one "ministry", one "state") are
+     *     intentionally NOT duplicates, or
+     *   - NEITHER row carries a designation: both exclusively reachable via DefaultConfigurationRule, so
+     *     matching role + rootOrg is a real ambiguity.
      */
     private boolean isDuplicateCriteria(JsonNode newCriteria, JsonNode existingCriteria) {
         boolean newBlank = newCriteria == null || newCriteria.isNull();
@@ -214,11 +224,22 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             return false;
         }
 
-        List<String> newDesignations = extractDesignations(newCriteria);
-        List<String> existingDesignations = extractDesignations(existingCriteria);
-        if (!newDesignations.isEmpty() && !existingDesignations.isEmpty()
-                && !Collections.disjoint(newDesignations, existingDesignations)) {
-            return true;
+        List<String> newDesignations = extractStringArray(newCriteria, Constants.DESIGNATION);
+        List<String> existingDesignations = extractStringArray(existingCriteria, Constants.DESIGNATION);
+
+        if (!newDesignations.isEmpty() || !existingDesignations.isEmpty()) {
+            // At least one row is designation-scoped, so it's exclusively handled by
+            // DesignationConfigurationRule at read time — role/rootOrg equality with a row that has no
+            // (or a non-overlapping) designation is not a real ambiguity, so don't fall through to that
+            // check below for this pair.
+            if (newDesignations.isEmpty() || existingDesignations.isEmpty()
+                    || Collections.disjoint(newDesignations, existingDesignations)) {
+                return false;
+            }
+            List<String> newMinistryOrStateType = extractStringArray(newCriteria, Constants.MINISTRY_OR_STATE_TYPE);
+            List<String> existingMinistryOrStateType = extractStringArray(existingCriteria, Constants.MINISTRY_OR_STATE_TYPE);
+            return newMinistryOrStateType.isEmpty() || existingMinistryOrStateType.isEmpty()
+                    || !Collections.disjoint(newMinistryOrStateType, existingMinistryOrStateType);
         }
 
         String newRole = criteriaTextValue(newCriteria, Constants.ROLE);
@@ -229,18 +250,18 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 && newRole.equalsIgnoreCase(existingRole) && newRootOrg.equalsIgnoreCase(existingRootOrg);
     }
 
-    private List<String> extractDesignations(JsonNode criteria) {
-        JsonNode designationNode = criteria.get(Constants.DESIGNATION);
-        if (designationNode == null || !designationNode.isArray()) {
+    private List<String> extractStringArray(JsonNode criteria, String field) {
+        JsonNode arrayNode = criteria.get(field);
+        if (arrayNode == null || !arrayNode.isArray()) {
             return Collections.emptyList();
         }
-        List<String> designations = new ArrayList<>();
-        for (JsonNode node : designationNode) {
+        List<String> values = new ArrayList<>();
+        for (JsonNode node : arrayNode) {
             if (node != null && !node.isNull() && StringUtils.isNotBlank(node.asText())) {
-                designations.add(node.asText());
+                values.add(node.asText());
             }
         }
-        return designations;
+        return values;
     }
 
     private String criteriaTextValue(JsonNode criteria, String field) {
@@ -422,6 +443,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             String oldSubtype = originalData.getSubtype();
             String oldPortal = originalData.getPortal();
             Double oldClientVersion = originalData.getClientVersion();
+            JsonNode oldCriteria = originalData.getCriteria();
 
             if (requestData.containsKey(Constants.NAME)) {
                 String newName = requestData.get(Constants.NAME).toString();
@@ -452,7 +474,16 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 originalData.setData(dataNode);
             }
 
-            if (hasDuplicateCriteria(originalData.getType(), originalData.getSubtype(), originalData.getPortal(),
+            // Only re-check for a criteria conflict when the (scope, criteria) tuple this row occupies
+            // actually changed by this update. A data/name-only update on a row whose criteria already
+            // pre-dates the uniqueness constraint (e.g. a legacy duplicate) must still be allowed to
+            // succeed — it isn't introducing a new conflict, just leaving the existing one untouched.
+            boolean scopeChanged = !Objects.equals(oldType, originalData.getType())
+                    || !Objects.equals(oldSubtype, originalData.getSubtype())
+                    || !Objects.equals(oldPortal, originalData.getPortal())
+                    || !Objects.equals(oldClientVersion, originalData.getClientVersion());
+            boolean criteriaChanged = requestData.containsKey(Constants.CRITERIA) && !Objects.equals(oldCriteria, originalData.getCriteria());
+            if ((scopeChanged || criteriaChanged) && hasDuplicateCriteria(originalData.getType(), originalData.getSubtype(), originalData.getPortal(),
                     originalData.getClientVersion(), originalData.getCriteria(), originalData.getId())) {
                 ProjectUtil.returnErrorMsg(Constants.ResponseMessages.FIELD_CRITERIA_ALREADY_EXISTS, HttpStatus.CONFLICT, response, Constants.FAILED);
                 return response;

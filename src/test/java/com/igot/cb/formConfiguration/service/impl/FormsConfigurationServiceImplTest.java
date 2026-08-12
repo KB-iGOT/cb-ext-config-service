@@ -222,6 +222,37 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
+    void updateFormConfigV2_duplicateCriteria_conflict() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+
+        FormConfigurationEntity original = entity();
+        original.setId(1L);
+        when(repository.findById(1L)).thenReturn(Optional.of(original));
+
+        // Real JsonNode (not a Mockito mock) so isDuplicateCriteria's .get()/.isNull()/.isArray() calls behave correctly.
+        com.fasterxml.jackson.databind.JsonNode sameCriteria =
+                new ObjectMapper().valueToTree(Map.of("role", "PUBLIC", "rootOrg", "org1"));
+        when(objectMapper.valueToTree(any())).thenReturn(sameCriteria);
+
+        // Another row already occupying that exact type/subtype/portal/clientVersion + role/rootOrg combo.
+        FormConfigurationEntity otherRow = entity();
+        otherRow.setId(2L);
+        otherRow.setCriteria(sameCriteria);
+        when(repository.findByTypeAndSubtypeAndPortalAndClientVersion("page", "player test", "mobile", 1.0))
+                .thenReturn(List.of(otherRow));
+
+        Map<String, Object> req = getRequest();
+        ((Map<String, Object>) req.get(Constants.Parameters.REQUEST)).put("id", 1L);
+
+        ApiResponse response = service.updateFormConfigV2(req, "token");
+
+        assertEquals(HttpStatus.CONFLICT, response.getResponseCode());
+        assertEquals(Constants.ResponseMessages.FIELD_CRITERIA_ALREADY_EXISTS, response.getParams().getErrMsg());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void listFormConfigs_success() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(repository.findAll()).thenReturn(List.of(entity()));
