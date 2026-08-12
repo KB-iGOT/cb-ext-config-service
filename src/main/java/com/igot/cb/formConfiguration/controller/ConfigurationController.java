@@ -47,7 +47,7 @@ public class ConfigurationController {
   public ResponseEntity<ApiResponse> readFormConfigById(
           @PathVariable("formId") Long formId,
           @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
-    ApiResponse response = formsConfigurationService.readFormConfigById(formId, token);
+    ApiResponse response = formsConfigurationService.readFormConfigById(formId, token, true);
     return new ResponseEntity<>(response, response.getResponseCode());
   }
 

@@ -25,6 +25,8 @@ import org.springframework.http.HttpStatus;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -188,9 +190,22 @@ class FormsConfigurationServiceImplTest {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(repository.findById(1L)).thenReturn(Optional.of(entity()));
 
-        ApiResponse response = service.readFormConfigById(1L, "token");
+        ApiResponse response = service.readFormConfigById(1L, "token", false);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertFalse(((Map<String, Object>) response.getResult()).containsKey(Constants.CRITERIA));
+    }
+
+    @Test
+    void readFormConfigById_admin_includesCriteria() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findById(1L)).thenReturn(Optional.of(entity()));
+        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
+
+        ApiResponse response = service.readFormConfigById(1L, "token", true);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertTrue(((Map<String, Object>) response.getResult()).containsKey(Constants.CRITERIA));
     }
 
     @Test
@@ -198,7 +213,7 @@ class FormsConfigurationServiceImplTest {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(repository.findById(1L)).thenReturn(Optional.empty());
 
-        ApiResponse response = service.readFormConfigById(1L, "token");
+        ApiResponse response = service.readFormConfigById(1L, "token", false);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
     }
