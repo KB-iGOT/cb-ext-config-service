@@ -36,10 +36,12 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
             String type, String subtype, String portal, Double clientVersion);
 
     /**
-     * Rule 1: matches purely on designation overlap (a user can hold more than one designation).
-     * Whether this rule is even attempted is gated upstream (in FormsConfigurationServiceImpl /
-     * DesignationConfigurationRule) on the caller's ministryOrStateType resolving to "ministry" or
-     * "state" — that check is eligibility only and is not re-verified against the row's criteria here.
+     * Rule 1: matches on designation overlap (a user can hold more than one designation) AND the
+     * row's own "ministryOrStateType" criteria array, when it declares one, containing the caller's
+     * resolved type ("ministry"/"state" — resolved upstream in FormsConfigurationServiceImpl /
+     * DesignationConfigurationRule). Rows that omit "ministryOrStateType" entirely (or declare an
+     * empty array) are treated as unscoped/legacy and match any caller. When both a scoped row and
+     * an unscoped row would otherwise match, the scoped one wins (ORDER BY).
      */
     @Query(value = """
     SELECT *
@@ -52,6 +54,15 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
           SELECT 1 FROM jsonb_array_elements_text(criteria -> 'designation') AS d(designation)
           WHERE d.designation IN (:designations)
       )
+      AND (
+            criteria -> 'ministryOrStateType' IS NULL
+            OR jsonb_array_length(criteria -> 'ministryOrStateType') = 0
+            OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(criteria -> 'ministryOrStateType') AS m(scope)
+                WHERE m.scope = :ministryOrStateType
+            )
+          )
+    ORDER BY (criteria -> 'ministryOrStateType' IS NOT NULL AND jsonb_array_length(criteria -> 'ministryOrStateType') > 0) DESC
     LIMIT 1
     """, nativeQuery = true)
     Optional<FormConfigurationEntity> getFormConfigByDesignation(
@@ -59,13 +70,15 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
             @Param("subtype") String subtype,
             @Param("portal") String portal,
             @Param("clientVersion") Double clientVersion,
-            @Param("designations") List<String> designations
+            @Param("designations") List<String> designations,
+            @Param("ministryOrStateType") String ministryOrStateType
     );
 
     /**
-     * Fallback match for the "default"/role+rootOrg rule. Runs after the designation rule, so it
-     * also matches rows that have a designation set — those rows just weren't answerable by the
-     * caller's own designation. No designation exclusion here: role+rootOrg alone is sufficient.
+     * Fallback match for the "default"/role+rootOrg rule. Runs after the designation rule. The
+     * "designation IS NULL" filter below means this rule's candidate set is disjoint from
+     * DesignationConfigurationRule's — a row with any designation array is only ever reachable via
+     * that rule, never this one, regardless of whether the caller's own designation matched it.
      */
     @Query(value = """
     SELECT *

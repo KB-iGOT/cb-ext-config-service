@@ -23,12 +23,21 @@ public class FormConfigResolutionContext {
     private final List<String> designations;
 
     /**
-     * Eligibility gate for the designation rule — never matched against a row's criteria, only
-     * checked for non-blank. Priority-resolved in FormsConfigurationServiceImpl: set to the caller's
-     * own rootOrg (from token) when org-read resolves it to a "ministry"; else to the request's
-     * explicit rootOrg when that resolves to a "ministry"; else to the caller's own rootOrg again
-     * when it resolves to a "state"; else {@code null} if none of those apply (designation rule
-     * doesn't apply at all).
+     * The org (from token or request) whose ministry/state resolution gates the designation rule.
+     * Priority-resolved in FormsConfigurationServiceImpl: set to the caller's own rootOrg (from
+     * token) when org-read resolves it to a "ministry"; else to the request's explicit rootOrg when
+     * that resolves to a "ministry"; else to the caller's own rootOrg again when it resolves to a
+     * "state"; else {@code null} if none of those apply (designation rule doesn't apply at all).
+     * Kept for traceability alongside {@link #designationMinistryOrStateType}, which is what
+     * actually gates/matches the rule.
      */
     private final String designationRootOrg;
+
+    /**
+     * "ministry" or "state" — the resolved type of {@link #designationRootOrg}, computed via the
+     * same priority logic. Non-blank exactly when {@link #designationRootOrg} is non-null. Used both
+     * as the designation rule's eligibility gate and as the value matched against a row's own
+     * "ministryOrStateType" criteria field (rows that omit it are unscoped and match any caller).
+     */
+    private final String designationMinistryOrStateType;
 }

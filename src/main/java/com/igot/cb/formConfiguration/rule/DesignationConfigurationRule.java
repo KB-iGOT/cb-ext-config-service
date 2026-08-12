@@ -11,12 +11,14 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Rule 1 — highest priority. Matches a form config scoped purely to the caller's designation.
- * {@code ctx.getDesignationRootOrg()} is an eligibility gate only — priority-resolved upstream in
- * FormsConfigurationServiceImpl (non-null when the caller's own rootOrg, or the request's explicit
- * rootOrg, resolves via org-read to "ministry"/"state") — it is never matched against the row's
- * criteria. Only applies when the caller has at least one designation and that gate passed; falls
- * through to {@link DefaultConfigurationRule} otherwise or when no such row exists.
+ * Rule 1 — highest priority. Matches a form config scoped to the caller's designation and, when a
+ * row declares one, its "ministryOrStateType". {@code ctx.getDesignationMinistryOrStateType()} is
+ * both the eligibility gate (non-null when the caller's own rootOrg, or the request's explicit
+ * rootOrg, resolves via org-read to "ministry"/"state" — priority-resolved upstream in
+ * FormsConfigurationServiceImpl) and the value matched against a row's own "ministryOrStateType"
+ * criteria array; rows that omit that field are unscoped and match any caller. Only applies when
+ * the caller has at least one designation and that gate passed; falls through to
+ * {@link DefaultConfigurationRule} otherwise or when no such row exists.
  */
 @Component
 public class DesignationConfigurationRule implements FormConfigLookupRule {
@@ -33,13 +35,14 @@ public class DesignationConfigurationRule implements FormConfigLookupRule {
 
     @Override
     public boolean supports(FormConfigResolutionContext ctx) {
-        return CollectionUtils.isNotEmpty(ctx.getDesignations()) && StringUtils.isNotBlank(ctx.getDesignationRootOrg());
+        return CollectionUtils.isNotEmpty(ctx.getDesignations()) && StringUtils.isNotBlank(ctx.getDesignationMinistryOrStateType());
     }
 
     @Override
     public Optional<FormConfigurationEntity> find(FormConfigResolutionContext ctx) {
         return repository.getFormConfigByDesignation(
-                ctx.getType(), ctx.getSubtype(), ctx.getPortal(), ctx.getClientVersion(), ctx.getDesignations()
+                ctx.getType(), ctx.getSubtype(), ctx.getPortal(), ctx.getClientVersion(), ctx.getDesignations(),
+                ctx.getDesignationMinistryOrStateType()
         );
     }
 
@@ -50,6 +53,6 @@ public class DesignationConfigurationRule implements FormConfigLookupRule {
                 .sorted()
                 .collect(Collectors.joining("|"));
         return FormConfigCacheKeys.build(RULE_ID, ctx.getType(), ctx.getSubtype(), ctx.getPortal(), ctx.getClientVersion(),
-                null, null, designationSegment);
+                ctx.getDesignationMinistryOrStateType(), null, designationSegment);
     }
 }
