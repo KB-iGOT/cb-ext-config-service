@@ -66,7 +66,7 @@ public interface Constants {
         static final String FIELD_NAME_INVALID_LENGTH = "Field name length exceeds 250 characters";
         static final String FIELD_MINISTRY_OR_STATE_TYPE_MISSING = "Field ministryOrStateType is missing";
         static final String FIELD_NAME_ALREADY_EXISTS = "Form configuration with this name already exists";
-        static final String FIELD_CRITERIA_ALREADY_EXISTS = "Form configuration with this criteria already exists for the given type, subType, portal and clientVersion";
+        static final String FIELD_CRITERIA_ALREADY_EXISTS = "Duplicate form configuration detected for the selected Type, Sub-Type, Portal, and Client Version. Please review and remove the duplicate.";
 
         static final String BAD_REQUEST = "Bad Request";
 
