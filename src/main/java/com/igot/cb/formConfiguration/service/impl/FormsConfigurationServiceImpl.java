@@ -11,6 +11,7 @@ import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
 import com.igot.cb.formConfiguration.rule.FormConfigResolutionContext;
 import com.igot.cb.formConfiguration.rule.FormConfigRuleEngine;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
+import com.igot.cb.formConfiguration.service.cache.FormConfigLocalCache;
 import com.igot.cb.formConfiguration.service.FormsConfigurationService;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.util.ApiResponse;
@@ -57,6 +58,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
     @Autowired
     private CacheService cacheService;
+
+    @Autowired
+    private FormConfigLocalCache formConfigLocalCache;
 
     @Override
     public ApiResponse readFormConfig(Map<String, Object> formConfigData, String authTokenOrUserId,String userOrg,List<String> userRoles,boolean isAdmin) {
@@ -202,6 +206,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
         String pattern = String.join(Constants.DOT_SEPARATOR,
                 Constants.FORM_CONFIG_RESULT, "*", type, subtype, portal, String.valueOf(clientVersion), "*");
         cacheService.deleteCacheByPattern(pattern);
+        // Redis is only L2 now: drop this pod's L1 directly and tell the other pods to do the same.
+        formConfigLocalCache.invalidateAll();
+        cacheService.publishInvalidate();
     }
 
     /**

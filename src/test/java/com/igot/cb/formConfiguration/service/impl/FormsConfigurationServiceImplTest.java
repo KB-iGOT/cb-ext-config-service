@@ -11,6 +11,7 @@ import com.igot.cb.formConfiguration.rule.FormConfigResolutionContext;
 import com.igot.cb.formConfiguration.rule.FormConfigRuleEngine;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
+import com.igot.cb.formConfiguration.service.cache.FormConfigLocalCache;
 import com.igot.cb.util.ApiResponse;
 import com.igot.cb.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +60,9 @@ class FormsConfigurationServiceImplTest {
 
     @Mock
     private CacheService cacheService;
+
+    @Mock
+    private FormConfigLocalCache formConfigLocalCache;
 
     private UserDetails userDetails;
 

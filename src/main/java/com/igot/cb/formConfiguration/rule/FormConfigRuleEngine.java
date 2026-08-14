@@ -3,6 +3,7 @@ package com.igot.cb.formConfiguration.rule;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.igot.cb.formConfiguration.entity.FormConfigurationEntity;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
+import com.igot.cb.formConfiguration.service.cache.FormConfigLocalCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,15 +28,18 @@ public class FormConfigRuleEngine {
 
     private final List<FormConfigLookupRule> orderedRules;
     private final CacheService cacheService;
+    private final FormConfigLocalCache localCache;
     private final ObjectMapper objectMapper;
 
     @Autowired
     public FormConfigRuleEngine(List<FormConfigLookupRule> rules, FormConfigRuleProperties ruleProperties,
-                                 CacheService cacheService, ObjectMapper objectMapper) {
+                                 CacheService cacheService, FormConfigLocalCache localCache,
+                                 ObjectMapper objectMapper) {
         this.orderedRules = rules.stream()
                 .sorted(Comparator.comparingInt((FormConfigLookupRule rule) -> scoreOf(rule, ruleProperties)).reversed())
                 .toList();
         this.cacheService = cacheService;
+        this.localCache = localCache;
         this.objectMapper = objectMapper;
     }
 
@@ -57,10 +61,21 @@ public class FormConfigRuleEngine {
 
             String cacheKey = rule.buildCacheKey(ctx);
 
-            String cached = cacheService.getCache(cacheKey);
+            // L1 (in-JVM) first, then L2 (Redis). Both hold the same serialized value under the same
+            // key, so an L1 hit is byte-identical to an L2 hit and just skips the network round trip.
+            boolean fromRedis = false;
+            String cached = localCache.get(cacheKey);
+            if (cached == null) {
+                cached = cacheService.getCache(cacheKey);
+                fromRedis = cached != null;
+            }
             if (cached != null) {
                 try {
-                    return Optional.of(objectMapper.readValue(cached, FormConfigurationEntity.class));
+                    FormConfigurationEntity entity = objectMapper.readValue(cached, FormConfigurationEntity.class);
+                    if (fromRedis) {
+                        localCache.put(cacheKey, cached);
+                    }
+                    return Optional.of(entity);
                 } catch (Exception e) {
                     log.error("FormConfigRuleEngine: failed to deserialize cached entity for key {}: {}", cacheKey, e.getMessage());
                 }
@@ -69,6 +84,11 @@ public class FormConfigRuleEngine {
             Optional<FormConfigurationEntity> found = rule.find(ctx);
             if (found.isPresent()) {
                 cacheService.putCache(cacheKey, found.get());
+                try {
+                    localCache.put(cacheKey, objectMapper.writeValueAsString(found.get()));
+                } catch (Exception e) {
+                    log.warn("FormConfigRuleEngine: failed to populate local cache for key {}: {}", cacheKey, e.getMessage());
+                }
                 return found;
             }
         }

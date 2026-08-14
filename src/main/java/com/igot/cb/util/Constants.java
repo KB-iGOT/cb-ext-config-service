@@ -127,6 +127,9 @@ public interface Constants {
     public static final String SUB = "sub";
     public static final String FORM_CONFIG_RESULT="form.config.result";
 
+    public static final String FORM_CONFIG_INVALIDATE_CHANNEL = "form.config.invalidate";
+    public static final String RELOAD = "reload";
+
     public static final String API_REDIS_DELETE = "api.redis.delete";
     public  static final String ERROR_REDIS_KEY_NOTFOUND = "No Keys found, Redis cache is empty";
     public static final String X_AUTH_USER_ORG_ID = "x-authenticated-user-orgid";
