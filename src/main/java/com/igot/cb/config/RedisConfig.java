@@ -20,10 +20,10 @@ import redis.clients.jedis.JedisPoolConfig;
 @Slf4j
 public class RedisConfig {
 
-    @Value("${redis.host:localhost}")
+    @Value("${IGOT_REDIS_HOST:localhost}")
     private String redisHost;
 
-    @Value("${redis.port:6379}")
+    @Value("${IGOT_REDIS_PORT:6379}")
     private int redisPort;
 
     @Value("${redis.timeout:2000}")
