@@ -117,5 +117,5 @@ public interface Constants {
     public  static final String ERROR_REDIS_KEY_NOTFOUND = "No Keys found, Redis cache is empty";
     public static final String X_AUTH_USER_ORG_ID = "x-authenticated-user-orgid";
     public static final String X_AUTH_USER_ROLES = "x-authenticated-user-roles";
-    ;
+    public static final String REDIS_CONNECTION_FACTORY = "redisConnectionFactory";
 }
