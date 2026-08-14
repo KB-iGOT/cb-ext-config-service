@@ -7,6 +7,8 @@ import com.igot.cb.formConfiguration.entity.FormConfigurationEntity;
 import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
+import com.igot.cb.formConfiguration.service.cache.FormConfigCache;
+import com.igot.cb.formConfiguration.service.cache.FormConfigCache.CachedFormConfig;
 import com.igot.cb.util.ApiResponse;
 import com.igot.cb.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,9 +44,19 @@ class FormsConfigurationServiceImplTest {
     private CacheService cacheService;
 
     @Mock
+    private FormConfigCache formConfigCache;
+
+    @Mock
     private ObjectMapper objectMapper;
 
     private UserDetails userDetails;
+
+    private static final String ORG_KEY =
+            FormConfigCache.cacheKey("page", "player test", "mobile", "org1", "PUBLIC", 1.0d);
+    private static final String WILDCARD_KEY =
+            FormConfigCache.cacheKey("page", "player test", "mobile", "*", "PUBLIC", 1.0d);
+    private static final CachedFormConfig CACHED =
+            new CachedFormConfig(Map.of(Constants.NAME, "testName"), "now");
 
     @BeforeEach
     void setup() {
@@ -98,16 +110,31 @@ class FormsConfigurationServiceImplTest {
         ApiResponse response = service.createFormConfig(getRequest(), "token");
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService).putCache(anyString(), any());
+        verify(formConfigCache).reload();
+        verify(cacheService).publishInvalidate();
     }
 
     @Test
-    void readFormConfig_roleOrgCacheHit_volunteer() throws Exception {
+    void readFormConfig_orgScopedLocalCacheHit_volunteer() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn("{}");
-        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new HashMap<>());
+        when(formConfigCache.isLoaded()).thenReturn(true);
+        when(formConfigCache.get(ORG_KEY)).thenReturn(CACHED);
+
+        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertEquals(CACHED.result(), response.getResult());
+        verify(repository, never()).getFormConfigDataByCriteria(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void readFormConfig_wildcardLocalCacheHit_public() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
+        when(formConfigCache.isLoaded()).thenReturn(true);
+        when(formConfigCache.get(ORG_KEY)).thenReturn(null);
+        when(formConfigCache.get(WILDCARD_KEY)).thenReturn(CACHED);
 
         ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
 
@@ -116,10 +143,23 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
-    void readFormConfig_roleOrgDbHit_volunteer() {
+    void readFormConfig_localCacheMissIsConclusive_noDbCall() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null);
+        when(formConfigCache.isLoaded()).thenReturn(true);
+        when(formConfigCache.get(anyString())).thenReturn(null);
+
+        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+        verify(repository, never()).getFormConfigDataByCriteria(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void readFormConfig_fallsBackToDbWhenSnapshotNeverLoaded() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
+        when(formConfigCache.isLoaded()).thenReturn(false);
         when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
                 .thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
@@ -127,52 +167,20 @@ class FormsConfigurationServiceImplTest {
         ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService, atLeastOnce()).putCache(anyString(), any());
-    }
-
-    @Test
-    void readFormConfig_roleWildcardCacheHit_public() throws Exception {
-        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null).thenReturn("{}");
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.empty());
-        when(objectMapper.readValue(anyString(), any(com.fasterxml.jackson.core.type.TypeReference.class)))
-                .thenReturn(new HashMap<>());
-
-        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
-
-        assertEquals(HttpStatus.OK, response.getResponseCode());
-    }
-
-    @Test
-    void readFormConfig_roleWildcardDbHit_public() {
-        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.empty());
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("*"), any(), any()))
-                .thenReturn(Optional.of(entity()));
-        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
-
-        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
-
-        assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService, atLeastOnce()).putCache(anyString(), any());
+        verify(repository).getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any());
     }
 
     @Test
     void readFormConfig_adminUsesPayloadCriteria() {
         when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn(Constants.SUCCESSFUL);
-        when(cacheService.getCache(anyString())).thenReturn(null);
-        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
-                .thenReturn(Optional.empty());
+        when(formConfigCache.isLoaded()).thenReturn(true);
+        when(formConfigCache.get(anyString())).thenReturn(null);
 
         ApiResponse response = service.readFormConfig(getRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
-        verify(repository).getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any());
+        // The admin path keys off the payload criteria (org1/PUBLIC), not the passed-in org/roles.
+        verify(formConfigCache).get(ORG_KEY);
     }
 
     @Test
@@ -187,7 +195,8 @@ class FormsConfigurationServiceImplTest {
         ApiResponse response = service.updateFormConfig(getRequest(), "token");
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
-        verify(cacheService).putCache(anyString(), any());
+        verify(formConfigCache).reload();
+        verify(cacheService).publishInvalidate();
     }
 
     @Test

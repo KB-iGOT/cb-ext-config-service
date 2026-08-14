@@ -1,6 +1,5 @@
 package com.igot.cb.formConfiguration.service.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.igot.cb.authentication.model.UserDetails;
@@ -10,6 +9,8 @@ import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
 import com.igot.cb.formConfiguration.service.FormsConfigurationService;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
+import com.igot.cb.formConfiguration.service.cache.FormConfigCache;
+import com.igot.cb.formConfiguration.service.cache.FormConfigCache.CachedFormConfig;
 import com.igot.cb.util.ApiResponse;
 import com.igot.cb.util.Constants;
 import com.igot.cb.util.ProjectUtil;
@@ -41,6 +42,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
     @Autowired
     private CacheService cacheService;
+
+    @Autowired
+    private FormConfigCache formConfigCache;
 
     @Autowired
     ObjectMapper objectMapper;
@@ -107,17 +111,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
 
-            // Invalidate existing cache pattern for this org
-            Map<String, Object> criteria = (Map<String, Object>) requestData.get(Constants.CRITERIA);
-            String criteriaOrg = criteria != null && criteria.get(Constants.ROOTORG) != null ? criteria.get(Constants.ROOTORG).toString() : "*";
-            String criteriaRole = criteria != null && criteria.get(Constants.ROLE) != null ? criteria.get(Constants.ROLE).toString() : "public";
-            String escapedOrg = criteriaOrg.contains("*") ? criteriaOrg.replace("*", "\\*") : criteriaOrg;
-            String pattern = Constants.FORM_CONFIG_RESULT + Constants.DOT_SEPARATOR + configurationEntity.getType() + Constants.DOT_SEPARATOR + configurationEntity.getSubtype() + Constants.DOT_SEPARATOR + configurationEntity.getPortal() + Constants.DOT_SEPARATOR + escapedOrg + "*";
-            cacheService.deleteCacheByPattern(pattern);
-
-            // Cache result for future request under partitioned key
-            String cacheKey = getCacheKey(configurationEntity.getType(), configurationEntity.getSubtype(), configurationEntity.getPortal(), criteriaOrg, criteriaRole, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
-            cacheService.putCache(cacheKey, result);
+            // Refresh this pod's snapshot immediately, then tell the other pods to reload.
+            formConfigCache.reload();
+            cacheService.publishInvalidate();
 
         } catch (Exception e) {
             log.error("Failed to create createFormConfig: {}", e.getMessage(), e);
@@ -159,126 +155,30 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             String type = requestData.get(Constants.TYPE).toString();
             String subtype = requestData.get(Constants.SUBTYPE).toString();
             String portal = requestData.get(Constants.PORTAL).toString();
+            Double clientVersion = Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString());
 
-            Optional<FormConfigurationEntity> formConfigurationEntity = Optional.empty();
-
+            List<String> orgs;
+            List<String> roles;
             if (isAdmin) {
                 log.info("FormsConfigurationServiceImpl::readFormConfig: AdminUser");
                 Map<String, Object> criteria = (Map<String, Object>) requestData.get(Constants.CRITERIA);
-                String criteriaOrg = criteria.get(Constants.ROOTORG).toString();
-                String criteriaRole = criteria.get(Constants.ROLE).toString();
-
-                String cacheKey = getCacheKey(type, subtype, portal, criteriaOrg, criteriaRole, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
-                String cachedData = cacheService.getCache(cacheKey);
-                if (cachedData != null) {
-                    Map<String, Object> formConfig = objectMapper.readValue(
-                            cachedData,
-                            new TypeReference<Map<String, Object>>() {
-                            }
-                    );
-                    response.setResponseCode(HttpStatus.OK);
-                    response.getParams().setStatus(Constants.SUCCESSFUL);
-                    response.setResult(formConfig);
-                    return response;
-                }
-
-                formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(
-                        type,
-                        subtype,
-                        portal,
-                        criteriaOrg,
-                        Collections.singletonList(criteriaRole),
-                        Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString())
-                );
-                if (formConfigurationEntity.isPresent()) {
-                    Map<String, Object> result = buildResult(formConfigurationEntity.get());
-
-                    response.put(Constants.CREATED_ON, formConfigurationEntity.get().getCreatedAt());
-                    response.setResult(result);
-                    response.setResponseCode(HttpStatus.OK);
-                    response.getParams().setStatus(Constants.SUCCESSFUL);
-                    cacheService.putCache(cacheKey, result);
-                    return response;
-                }
+                orgs = Collections.singletonList(criteria.get(Constants.ROOTORG).toString());
+                roles = Collections.singletonList(criteria.get(Constants.ROLE).toString());
             } else {
-
                 log.info("FormsConfigurationServiceImpl::readFormConfig: Public/volunteer user");
-                userRoles = userDetails.getUserRoles();
-                userOrg = userDetails.getOrg();
+                // Prefer a config scoped to the user's own org, then fall back to the wildcard org.
+                orgs = Arrays.asList(userDetails.getOrg(), Constants.WILDCARD);
+                roles = userDetails.getUserRoles();
+            }
 
-                log.info("FormsConfigurationServiceImpl::readFormConfig: Public/volunteer user");
-
-                // Step 1: Check cache for userRole + userOrgId (Volunteer case).
-                if (ObjectUtils.isNotEmpty(userRoles)) {
-                    for (String role : userRoles) {
-                        String roleOrgCacheKey = getCacheKey(type, subtype, portal, userOrg, role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
-                        String roleOrgCachedData = cacheService.getCache(roleOrgCacheKey);
-                        if (roleOrgCachedData != null) {
-                            Map<String, Object> formConfig = objectMapper.readValue(
-                                    roleOrgCachedData,
-                                    new TypeReference<Map<String, Object>>() {
-                                    }
-                            );
-                            response.setResponseCode(HttpStatus.OK);
-                            response.getParams().setStatus(Constants.SUCCESSFUL);
-                            response.setResult(formConfig);
-                            return response;
-                        }
-                    }
-                }
-
-                // Step 2: Query DB using userRole + userOrgId (Volunteer case).
-                formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(type, subtype, portal, userOrg, userRoles, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
-                if (formConfigurationEntity.isPresent()) {
-                    Map<String, Object> result = buildResult(formConfigurationEntity.get());
-
-                    response.put(Constants.CREATED_ON, formConfigurationEntity.get().getCreatedAt());
-                    response.setResult(result);
-                    response.setResponseCode(HttpStatus.OK);
-                    response.getParams().setStatus(Constants.SUCCESSFUL);
-                    if (ObjectUtils.isNotEmpty(userRoles)) {
-                        for (String role : userRoles) {
-                            cacheService.putCache(getCacheKey(type, subtype, portal, userOrg, role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString())), result);
-                        }
-                    }
-                    return response;
-                }
-
-                // Step 3: Check cache for userRole + '*' (Public case - fallback).
-                if (ObjectUtils.isNotEmpty(userRoles)) {
-                    for (String role : userRoles) {
-                        String fallbackCacheKey = getCacheKey(type, subtype, portal, "*", role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
-                        String fallbackCachedData = cacheService.getCache(fallbackCacheKey);
-                        if (fallbackCachedData != null) {
-                            Map<String, Object> formConfig = objectMapper.readValue(
-                                    fallbackCachedData,
-                                    new TypeReference<Map<String, Object>>() {
-                                    }
-                            );
-                            response.setResponseCode(HttpStatus.OK);
-                            response.getParams().setStatus(Constants.SUCCESSFUL);
-                            response.setResult(formConfig);
-                            return response;
-                        }
-                    }
-                }
-
-                // Step 4: Query DB with userRole + '*' (Public case - fallback).
-                formConfigurationEntity = formConfigurationRepository.getFormConfigDataByCriteria(type, subtype, portal, "*", userRoles, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
-                if (formConfigurationEntity.isPresent()) {
-                    Map<String, Object> result = buildResult(formConfigurationEntity.get());
-
-                    response.put(Constants.CREATED_ON, formConfigurationEntity.get().getCreatedAt());
-                    response.setResult(result);
-                    response.setResponseCode(HttpStatus.OK);
-                    response.getParams().setStatus(Constants.SUCCESSFUL);
-                    if (ObjectUtils.isNotEmpty(userRoles)) {
-                        for (String role : userRoles) {
-                            cacheService.putCache(getCacheKey(type, subtype, portal, "*", role, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString())), result);
-                        }
-                    }
-                    return response;
-                }
+            CachedFormConfig formConfig = lookup(type, subtype, portal, orgs, roles, clientVersion);
+            if (formConfig != null) {
+                response.put(Constants.CREATED_ON, formConfig.createdAt());
+                // Defensive copy: the snapshot entry is shared across all request threads.
+                response.setResult(new HashMap<>(formConfig.result()));
+                response.setResponseCode(HttpStatus.OK);
+                response.getParams().setStatus(Constants.SUCCESSFUL);
+                return response;
             }
 
             // If not found in any condition
@@ -334,13 +234,6 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 ProjectUtil.returnErrorMsg("FormConfig Data not exist: " + type + Constants.DOT_SEPARATOR + subtype + Constants.DOT_SEPARATOR + portal, HttpStatus.NOT_FOUND, response, Constants.FAILED);
                 return response;
             }
-            // Get old criteria org before updating
-            JsonNode oldCriteriaNode = formConfigurationEntity.get().getCriteria();
-            String oldOrg = "*";
-            if (oldCriteriaNode != null && oldCriteriaNode.has(Constants.ROOTORG)) {
-                oldOrg = oldCriteriaNode.get(Constants.ROOTORG).asText();
-            }
-
             // Update entity data
             Timestamp currentTime = new Timestamp(System.currentTimeMillis());
             String formattedCurrentTime = getFormattedCurrentTime(currentTime);
@@ -372,24 +265,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             response.getParams().setStatus(Constants.SUCCESSFUL);
             response.setResult(result);
 
-            // Extract new criteria details for invalidation
-            criteriaOrg = criteria != null && criteria.get(Constants.ROOTORG) != null ? criteria.get(Constants.ROOTORG).toString() : "*";
-            criteriaRole = criteria != null && criteria.get(Constants.ROLE) != null ? criteria.get(Constants.ROLE).toString() : "public";
-
-            // Invalidate cache for both old and new org configurations
-            String escapedOldOrg = oldOrg.contains("*") ? oldOrg.replace("*", "\\*") : oldOrg;
-            String oldPattern = Constants.FORM_CONFIG_RESULT + Constants.DOT_SEPARATOR + type + Constants.DOT_SEPARATOR + subtype + Constants.DOT_SEPARATOR + portal + Constants.DOT_SEPARATOR + escapedOldOrg + "*";
-            cacheService.deleteCacheByPattern(oldPattern);
-
-            if (!oldOrg.equals(criteriaOrg)) {
-                String escapedNewOrg = criteriaOrg.contains("*") ? criteriaOrg.replace("*", "\\*") : criteriaOrg;
-                String newPattern = Constants.FORM_CONFIG_RESULT + Constants.DOT_SEPARATOR + type + Constants.DOT_SEPARATOR + subtype + Constants.DOT_SEPARATOR + portal + Constants.DOT_SEPARATOR + escapedNewOrg + "*";
-                cacheService.deleteCacheByPattern(newPattern);
-            }
-
-            // Cache result for future request under the partitioned key
-            String cacheKey = getCacheKey(type, subtype, portal, criteriaOrg, criteriaRole, Double.valueOf(requestData.get(Constants.CLIENT_VERSION).toString()));
-            cacheService.putCache(cacheKey, result);
+            // Refresh this pod's snapshot immediately, then tell the other pods to reload.
+            formConfigCache.reload();
+            cacheService.publishInvalidate();
 
         } catch (Exception e) {
             ProjectUtil.returnErrorMsg("Failed to updateFormConfig: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);
@@ -400,20 +278,45 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
     }
 
 
-    private String getCacheKey(String type, String subtype, String portal, String userOrg, String userRole, Double clientVersion) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(Constants.FORM_CONFIG_RESULT)
-                .append(Constants.DOT_SEPARATOR).append(type)
-                .append(Constants.DOT_SEPARATOR).append(subtype)
-                .append(Constants.DOT_SEPARATOR).append(portal);
-        if (userOrg != null) {
-            sb.append(Constants.DOT_SEPARATOR).append(userOrg);
+    /**
+     * Resolves a form configuration from the in-JVM snapshot, trying each org in order
+     * and, within an org, each role in order. The snapshot holds the whole table, so a
+     * miss is conclusive and no database call is made.
+     */
+    private CachedFormConfig lookup(String type, String subtype, String portal, List<String> orgs,
+                                    List<String> roles, Double clientVersion) {
+        if (ObjectUtils.isEmpty(roles)) {
+            return null;
         }
-        if (userRole != null) {
-            sb.append(Constants.DOT_SEPARATOR).append(userRole);
+        for (String org : orgs) {
+            if (org == null || org.isBlank()) {
+                continue;
+            }
+            for (String role : roles) {
+                if (role == null || role.isBlank()) {
+                    continue;
+                }
+                CachedFormConfig hit = formConfigCache.isLoaded()
+                        ? formConfigCache.get(FormConfigCache.cacheKey(type, subtype, portal, org, role, clientVersion))
+                        : loadFromDb(type, subtype, portal, org, role, clientVersion);
+                if (hit != null) {
+                    return hit;
+                }
+            }
         }
-        if (clientVersion != null) sb.append(Constants.DOT_SEPARATOR).append(clientVersion);
-        return sb.toString();
+        return null;
+    }
+
+    /**
+     * Fallback used only while the snapshot has never loaded successfully, so that a
+     * database outage at startup degrades to the previous behaviour instead of 404s.
+     */
+    private CachedFormConfig loadFromDb(String type, String subtype, String portal, String org, String role,
+                                        Double clientVersion) {
+        return formConfigurationRepository
+                .getFormConfigDataByCriteria(type, subtype, portal, org, Collections.singletonList(role), clientVersion)
+                .map(entity -> new CachedFormConfig(buildResult(entity), entity.getCreatedAt()))
+                .orElse(null);
     }
 
     private Map<String, Object> buildResult(FormConfigurationEntity formConfigurationEntity) {
@@ -484,6 +387,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             response.setResult(result);
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
+
+            formConfigCache.reload();
+            cacheService.publishInvalidate();
 
         } catch (Exception e) {
             log.error("Failed to create createFormConfigV2: {}", e.getMessage(), e);
@@ -615,6 +521,9 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
             response.setResult(result);
+
+            formConfigCache.reload();
+            cacheService.publishInvalidate();
 
         } catch (Exception e) {
             ProjectUtil.returnErrorMsg("Failed to updateFormConfigV2: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR, response, Constants.FAILED);

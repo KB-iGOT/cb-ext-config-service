@@ -1,143 +1,118 @@
 package com.igot.cb.formConfiguration.service.cache;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.igot.cb.formConfiguration.service.cache.CacheService;
 import com.igot.cb.util.ApiResponse;
 import com.igot.cb.util.Constants;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.util.ReflectionTestUtils;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.Collections;
+import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class CacheServiceTest {
 
     @InjectMocks
     private CacheService cacheService;
 
     @Mock
-    private RedisTemplate<String, String> redisTemplate;
+    private JedisPool jedisPool;
 
     @Mock
-    private ObjectMapper objectMapper;
+    private Jedis jedis;
 
-    @Mock
-    private ValueOperations<String, String> valueOperations;
-
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(cacheService, "cacheTtl", 60000L);
+    private void withPooledJedis() {
+        when(jedisPool.getResource()).thenReturn(jedis);
     }
 
     @Test
-    void putCache_shouldSaveDataInRedis() throws Exception {
-        String key = "testKey";
-        Map<String, Object> data = Map.of("name", "test");
+    void publishInvalidate_shouldPublishOnInvalidationChannel() {
+        withPooledJedis();
 
-        when(objectMapper.writeValueAsString(data)).thenReturn("{\"name\":\"test\"}");
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        cacheService.publishInvalidate();
 
-        cacheService.putCache(key, data);
-
-        verify(valueOperations).set(
-                eq(key),
-                eq("{\"name\":\"test\"}"),
-                eq(60000L),
-                eq(TimeUnit.SECONDS)
-        );
+        verify(jedis).publish(Constants.FORM_CONFIG_INVALIDATE_CHANNEL, Constants.RELOAD);
     }
 
     @Test
-    void putCache_shouldHandleException() throws Exception {
-        String key = "testKey";
-        Map<String, Object> data = Map.of("name", "test");
+    void publishInvalidate_shouldSwallowRedisFailure() {
+        when(jedisPool.getResource()).thenThrow(new RuntimeException("Redis down"));
 
-        when(objectMapper.writeValueAsString(data))
-                .thenThrow(new JsonProcessingException("JSON error") {});
-
-        assertDoesNotThrow(() -> cacheService.putCache(key, data));
-
-        verify(redisTemplate, never()).opsForValue();
+        cacheService.publishInvalidate();
     }
 
     @Test
-    void getCache_shouldReturnCachedData() {
-        String key = "testKey";
+    void deleteCacheByKey_shouldReturnTrueWhenKeyRemoved() {
+        withPooledJedis();
+        when(jedis.del("testKey")).thenReturn(1L);
 
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(key)).thenReturn("{\"name\":\"test\"}");
-
-        String result = cacheService.getCache(key);
-
-        assertEquals("{\"name\":\"test\"}", result);
+        assertTrue(cacheService.deleteCache("testKey"));
+        verify(jedis).del("testKey");
     }
 
     @Test
-    void getCache_shouldReturnNullWhenExceptionOccurs() {
-        String key = "testKey";
+    void deleteCacheByKey_shouldReturnFalseWhenKeyAbsent() {
+        withPooledJedis();
+        when(jedis.del("testKey")).thenReturn(0L);
 
-        when(redisTemplate.opsForValue()).thenThrow(new RuntimeException("Redis error"));
-
-        String result = cacheService.getCache(key);
-
-        assertNull(result);
+        assertFalse(cacheService.deleteCache("testKey"));
     }
 
     @Test
-    void deleteCacheByKey_shouldReturnTrue() {
-        String key = "testKey";
+    void deleteCacheByPattern_shouldScanAndDeleteMatchingKeys() {
+        withPooledJedis();
+        ScanResult<String> page = new ScanResult<>(ScanParams.SCAN_POINTER_START,
+                List.of("form.config.result.a", "form.config.result.b"));
+        when(jedis.scan(anyString(), any(ScanParams.class))).thenReturn(page);
+        when(jedis.del(any(String[].class))).thenReturn(2L);
 
-        when(redisTemplate.delete(key)).thenReturn(true);
-
-        boolean result = cacheService.deleteCache(key);
-
-        assertTrue(result);
-        verify(redisTemplate).delete(key);
+        assertEquals(2L, cacheService.deleteCacheByPattern("form.config.result*"));
+        verify(jedis).del(new String[]{"form.config.result.a", "form.config.result.b"});
     }
 
     @Test
-    void deleteCache_shouldReturnOkWhenKeyDeleted() {
-        when(redisTemplate.delete(Constants.FORM_CONFIG_RESULT)).thenReturn(true);
+    void deleteCacheByPattern_shouldNotCallDeleteWhenNoMatches() {
+        withPooledJedis();
+        ScanResult<String> page = new ScanResult<>(ScanParams.SCAN_POINTER_START, Collections.emptyList());
+        when(jedis.scan(anyString(), any(ScanParams.class))).thenReturn(page);
+
+        assertEquals(0L, cacheService.deleteCacheByPattern("form.config.result*"));
+        verify(jedis, never()).del(any(String[].class));
+    }
+
+    @Test
+    void deleteCache_shouldClearFormConfigKeysAndPublishInvalidation() {
+        withPooledJedis();
+        ScanResult<String> page = new ScanResult<>(ScanParams.SCAN_POINTER_START,
+                List.of("form.config.result.a"));
+        when(jedis.scan(anyString(), any(ScanParams.class))).thenReturn(page);
+        when(jedis.del(any(String[].class))).thenReturn(1L);
 
         ApiResponse response = cacheService.deleteCache();
 
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getResponseCode());
         assertEquals(Constants.SUCCESSFUL, response.getParams().getStatus());
-    }
-
-    @Test
-    void deleteCache_shouldReturnNullWhenKeyNotFound() {
-        when(redisTemplate.delete(Constants.FORM_CONFIG_RESULT)).thenReturn(false);
-
-        ApiResponse response = cacheService.deleteCache();
-
-        assertNull(response);
-    }
-
-    @Test
-    void deleteCacheByPattern_shouldDeleteMatchingKeys() {
-        String pattern = "testPattern*";
-        java.util.Set<String> mockKeys = java.util.Set.of("testPattern1", "testPattern2");
-
-        when(redisTemplate.keys(pattern)).thenReturn(mockKeys);
-
-        cacheService.deleteCacheByPattern(pattern);
-
-        verify(redisTemplate).keys(pattern);
-        verify(redisTemplate).delete(mockKeys);
+        verify(jedis).publish(Constants.FORM_CONFIG_INVALIDATE_CHANNEL, Constants.RELOAD);
     }
 }

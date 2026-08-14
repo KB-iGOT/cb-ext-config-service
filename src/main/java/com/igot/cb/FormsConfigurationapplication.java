@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
@@ -20,6 +21,7 @@ import org.springframework.web.client.RestTemplate;
 //@EnableJpaRepositories(basePackages = {"com.igot.cb.*"})
 @ComponentScan(basePackages = "com.igot.cb")
 @EntityScan("com.igot.cb")
+@EnableScheduling
 @SpringBootApplication
 public class FormsConfigurationapplication {
 
