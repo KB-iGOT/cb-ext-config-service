@@ -59,6 +59,9 @@ public class FormConfigRuleEngine {
 
             String cached = cacheService.getCache(cacheKey);
             if (cached != null) {
+                if ("EMPTY".equals(cached) || "\"EMPTY\"".equals(cached)) {
+                    continue;
+                }
                 try {
                     return Optional.of(objectMapper.readValue(cached, FormConfigurationEntity.class));
                 } catch (Exception e) {
@@ -70,6 +73,8 @@ public class FormConfigRuleEngine {
             if (found.isPresent()) {
                 cacheService.putCache(cacheKey, found.get());
                 return found;
+            } else {
+                cacheService.putCache(cacheKey, "EMPTY");
             }
         }
         return Optional.empty();
