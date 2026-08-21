@@ -26,7 +26,7 @@ public class CacheService {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Value("${spring.redis.cacheTtl}")
+    @Value("${formconfig.redisCache.ttlSeconds}")
     private long cacheTtl;
 
     public void putCache(String key, Object object) {
