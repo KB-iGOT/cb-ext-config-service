@@ -19,11 +19,11 @@ public class ValidationService {
     public String validateForm(Map<String,Object> formRequest, String operation) {
         String validationMsg = Constants.SUCCESSFUL;
         if (MapUtils.isEmpty(formRequest)) {
-            validationMsg = Constants.CHECK_REQUEST_PARAMS;
+            return Constants.CHECK_REQUEST_PARAMS;
         }
         // validate for create operation
         if(!formRequest.containsKey(Constants.Parameters.REQUEST) || ObjectUtils.isEmpty(formRequest.get(Constants.Parameters.REQUEST))) {
-            validationMsg = Constants.CHECK_REQUEST_PARAMS;
+            return Constants.CHECK_REQUEST_PARAMS;
         }
 
 

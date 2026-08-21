@@ -60,7 +60,7 @@ public class FormConfigRuleEngine {
             }
 
             String cacheKey = rule.buildCacheKey(ctx);
-
+            log.info("cacheKey {}: ", cacheKey);
             // L1 (in-JVM) first, then L2 (Redis). Both hold the same serialized value under the same
             // key, so an L1 hit is byte-identical to an L2 hit and just skips the network round trip.
             boolean fromRedis = false;
