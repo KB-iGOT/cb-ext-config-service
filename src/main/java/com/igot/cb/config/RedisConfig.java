@@ -20,14 +20,15 @@ import redis.clients.jedis.JedisPoolConfig;
 @Slf4j
 public class RedisConfig {
 
-    @Value("${IGOT_REDIS_HOST:localhost}")
-    private String redisHost;
+     @Value("${redis.data.host.name}")
+	private String redisDataHostName;
 
-    @Value("${IGOT_REDIS_PORT:6379}")
-    private int redisPort;
+	@Value("${redis.data.port}")
+	private int redisDataPort;
 
     @Value("${redis.timeout:2000}")
     private int redisTimeoutMillis;
+
 
     /**
      * Creates a JedisPool bean for Redis connection pooling.
@@ -38,8 +39,8 @@ public class RedisConfig {
     @Bean(name = "jedisPool", destroyMethod = "close")
     public JedisPool jedisPool() {
         System.setProperty("org.apache.commons.pool2.registerMbeans", "false");
-        log.info("Initialising JedisPool for redis {}:{}", redisHost, redisPort);
-        return new JedisPool(buildPoolConfig(), redisHost, redisPort, redisTimeoutMillis);
+        log.info("Initialising JedisPool for redis {}:{}", redisDataHostName, redisDataPort);
+        return new JedisPool(buildPoolConfig(), redisDataHostName, redisDataPort, redisTimeoutMillis);
     }
 
     private JedisPoolConfig buildPoolConfig() {
