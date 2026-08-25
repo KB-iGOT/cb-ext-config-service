@@ -114,7 +114,8 @@ class FormsConfigurationServiceImplTest {
         when(formConfigRuleEngine.resolve(any(FormConfigResolutionContext.class))).thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
-        ApiResponse response = service.readFormConfig(getRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
+        ApiResponse response = service.readFormConfig(getRequest(), "admin1", "ignored-org",
+                List.of("DASHBOARD_ADMIN", "PUBLIC"), true);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
         ArgumentCaptor<FormConfigResolutionContext> ctxCaptor = ArgumentCaptor.forClass(FormConfigResolutionContext.class);
@@ -125,7 +126,9 @@ class FormsConfigurationServiceImplTest {
         assertEquals("mobile", ctx.getPortal());
         assertEquals(1.0, ctx.getClientVersion());
         assertEquals("ignored-org", ctx.getRootOrg());
-        assertEquals(List.of("IGNORED"), ctx.getRoles());
+        // Rule 2 (roleRootOrg) only ever matches on PUBLIC/VOLUNTEER - admin/staff roles the caller
+        // also holds (DASHBOARD_ADMIN here) are filtered out before reaching the rule engine.
+        assertEquals(List.of("PUBLIC"), ctx.getRoles());
     }
 
     @Test

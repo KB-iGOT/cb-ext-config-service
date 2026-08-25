@@ -88,7 +88,11 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 token = authTokenOrUserId;
             }
             String userId = userDetails.getUserId();
-            List<String> roles = userDetails.getUserRoles();
+            // Rule 2 (roleRootOrg) answers public-facing requests; a caller who also holds
+            // admin/staff roles (SPV_ADMIN, DASHBOARD_ADMIN, ...) shouldn't have every one of those
+            // fan out into the DB IN(...) match / cache key - only PUBLIC/VOLUNTEER, if the caller
+            // actually holds either, are relevant to this rule's role-based criteria matching.
+            List<String> roles = filterToPublicOrVolunteer(userDetails.getUserRoles());
             String rootOrg = userDetails.getOrg();
 
             String validationMsg = validationService.validateForm(formConfigData, Constants.Parameters.READ);
@@ -170,6 +174,25 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
     }
 
 
+
+    /**
+     * Rule 2 (roleRootOrg) mostly only needs to know whether the caller is PUBLIC or VOLUNTEER —
+     * every other role (admin/staff roles included) is irrelevant to that rule's matching and would
+     * otherwise inflate the cache key / the {@code criteria->>'role' IN (:roles)} query with roles no
+     * form config row is ever scoped to. But a caller holding NEITHER PUBLIC nor VOLUNTEER (a pure
+     * admin/staff caller) must keep their full role list - some rows are scoped to an admin/staff
+     * role directly (e.g. criteria.role = "SPV_ADMIN"), and narrowing to empty here would make
+     * DefaultConfigurationRule.supports(ctx) return false and skip the rule entirely for them.
+     */
+    private static List<String> filterToPublicOrVolunteer(List<String> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return roles;
+        }
+        List<String> filtered = roles.stream()
+                .filter(role -> Constants.PUBLIC_ROLE.equalsIgnoreCase(role) || Constants.VOLUNTEER_ROLE.equalsIgnoreCase(role))
+                .toList();
+        return filtered.isEmpty() ? roles : filtered;
+    }
 
     /**
      * @param isAdmin whether the caller is an admin — only admin callers get "criteria" back in the

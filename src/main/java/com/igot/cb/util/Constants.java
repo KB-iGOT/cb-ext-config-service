@@ -104,6 +104,8 @@ public interface Constants {
     public static final String SB_ORG_TYPE = "sbOrgType";
     public static final String MINISTRY = "ministry";
     public static final String STATE = "state";
+    public static final String PUBLIC_ROLE = "PUBLIC";
+    public static final String VOLUNTEER_ROLE = "VOLUNTEER";
     public static final String ORGANISATION_ID = "organisationId";
     static final String TYPE ="type" ;
     public static final String CRITERIA ="criteria" ;
