@@ -94,7 +94,7 @@ public class OrgReadServiceImpl implements OrgReadService {
         JsonNode responseNode = response.path("result").path("response");
         JsonNode sbOrgTypeNode = responseNode.path(Constants.SB_ORG_TYPE);
         String sbOrgType = sbOrgTypeNode.isMissingNode() || sbOrgTypeNode.isNull() ? null : sbOrgTypeNode.asText(null);
-        if (Constants.MINISTRY.equalsIgnoreCase(sbOrgType)) {
+        if (Constants.MINISTRY.equalsIgnoreCase(sbOrgType) || Constants.STATE.equalsIgnoreCase(sbOrgType)) {
             return sbOrgType;
         }
         JsonNode value = responseNode.path(Constants.MINISTRY_OR_STATE_TYPE);
