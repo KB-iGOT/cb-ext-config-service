@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -81,11 +82,11 @@ public class OrgReadServiceImpl implements OrgReadService {
     }
 
     /**
-     * sbOrgType is trusted only when it explicitly says "ministry" — some orgs carry an unrelated
-     * value in ministryOrStateType (e.g. "SPV") even though sbOrgType correctly identifies them as
-     * a ministry. For every other sbOrgType value (blank, or some unrelated org-category like
-     * "mdo") sbOrgType isn't useful for this ministry/state question, so ministryOrStateType is
-     * checked instead — it may still correctly say "state" even when sbOrgType said something else.
+     * Rule 1 priority is: ministry first, then state.
+     *
+     * If ministryOrStateType is a non-standard value like "SPV", we do not use it as the canonical
+     * ministry/state result. Instead, we fall back to sbOrgType to determine the real ministry/state
+     * classification. This preserves the ministry-first precedence while still handling SPV payloads.
      */
     private String extractMinistryOrStateType(JsonNode response) {
         if (response == null) {
@@ -94,10 +95,20 @@ public class OrgReadServiceImpl implements OrgReadService {
         JsonNode responseNode = response.path("result").path("response");
         JsonNode sbOrgTypeNode = responseNode.path(Constants.SB_ORG_TYPE);
         String sbOrgType = sbOrgTypeNode.isMissingNode() || sbOrgTypeNode.isNull() ? null : sbOrgTypeNode.asText(null);
-        if (Constants.MINISTRY.equalsIgnoreCase(sbOrgType) || Constants.STATE.equalsIgnoreCase(sbOrgType)) {
-            return sbOrgType;
-        }
+
         JsonNode value = responseNode.path(Constants.MINISTRY_OR_STATE_TYPE);
-        return value.isMissingNode() || value.isNull() ? null : value.asText(null);
+        String ministryOrStateType = value.isMissingNode() || value.isNull() ? null : value.asText(null);
+
+        if (StringUtils.isNotBlank(ministryOrStateType)
+                && !"SPV".equalsIgnoreCase(ministryOrStateType)
+                && (Constants.MINISTRY.equalsIgnoreCase(ministryOrStateType) || Constants.STATE.equalsIgnoreCase(ministryOrStateType))) {
+            return ministryOrStateType.toLowerCase(Locale.ROOT);
+        }
+
+        if (Constants.MINISTRY.equalsIgnoreCase(sbOrgType) || Constants.STATE.equalsIgnoreCase(sbOrgType)) {
+            return sbOrgType.toLowerCase(Locale.ROOT);
+        }
+
+        return null;
     }
 }
