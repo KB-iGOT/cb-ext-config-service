@@ -1,0 +1,24 @@
+# GitHub Pages (Jekyll) configuration for the docs/ folder.
+# Repo settings -> Pages -> Source: "Deploy from a branch", branch cbrelease-4.8.39.2, folder /docs
+title: cb-ext-config-service
+description: Form Configuration Service — API documentation, OpenAPI spec and Postman collection
+baseurl: /cb-ext-config-service
+url: https://kb-igot.github.io
+
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-relative-links      # rewrites *.md links to their rendered pages
+  - jekyll-optional-front-matter  # renders .md files that have no front matter
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Serve the spec and Postman collection as plain files (no processing)
+include:
+  - openapi.json
+  - form_configuration_apis_postman_collection.json
+exclude:
+  - README.md
