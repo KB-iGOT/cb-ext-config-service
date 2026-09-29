@@ -83,6 +83,21 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 }
                 token = authTokenOrUserId;
             }
+
+            Map<String, Object> requestData = (Map<String, Object>) formConfigData.get(Constants.Parameters.REQUEST);
+
+            // Name-scoped configs (e.g. "portal_global_env_config") are fetched by the (name, type,
+            // subtype, portal) tuple from the request - no clientVersion validation, role, or
+            // designation matching applies, so this short-circuits before any of those checks run.
+            if (ObjectUtils.isNotEmpty(requestData) && ObjectUtils.isNotEmpty(requestData.get(Constants.NAME))
+                    && requestData.get(Constants.NAME).toString().equalsIgnoreCase(Constants.GLOBAL_ENV_CONFIG)) {
+                return readFormConfigByName(requestData.get(Constants.NAME).toString(),
+                        ObjectUtils.isNotEmpty(requestData.get(Constants.TYPE)) ? requestData.get(Constants.TYPE).toString() : null,
+                        ObjectUtils.isNotEmpty(requestData.get(Constants.SUBTYPE)) ? requestData.get(Constants.SUBTYPE).toString() : null,
+                        ObjectUtils.isNotEmpty(requestData.get(Constants.PORTAL)) ? requestData.get(Constants.PORTAL).toString() : null,
+                        isAdmin, response);
+            }
+
             String userId = userDetails.getUserId();
             List<String> roles = userDetails.getUserRoles();
             String rootOrg = userDetails.getOrg();
@@ -93,7 +108,6 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 return response;
             }
 
-            Map<String, Object> requestData = (Map<String, Object>) formConfigData.get(Constants.Parameters.REQUEST);
             String type = requestData.get(Constants.TYPE).toString();
             String subtype = requestData.get(Constants.SUBTYPE).toString();
             String portal = requestData.get(Constants.PORTAL).toString();
@@ -166,6 +180,28 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
     }
 
 
+
+    /**
+     * Name-scoped read (e.g. "portal_global_env_config"): matched on the (name, type, subtype, portal)
+     * tuple from the request, with no clientVersion/role/designation matching involved.
+     */
+    private ApiResponse readFormConfigByName(String name, String type, String subtype, String portal,
+                                              boolean isAdmin, ApiResponse response) {
+        Optional<FormConfigurationEntity> entityOpt =
+                formConfigurationRepository.findByNameIgnoreCaseAndTypeAndSubtypeAndPortal(name, type, subtype, portal);
+        if (entityOpt.isEmpty()) {
+            response.getParams().setStatus(Constants.FAILED);
+            response.getParams().setErrMsg("form data not found for " + name + " " + type + " " + subtype + " " + portal);
+            response.setResponseCode(HttpStatus.NOT_FOUND);
+            return response;
+        }
+        Map<String, Object> result = buildResult(entityOpt.get(), isAdmin);
+        response.put(Constants.CREATED_ON, entityOpt.get().getCreatedAt());
+        response.setResult(result);
+        response.setResponseCode(HttpStatus.OK);
+        response.getParams().setStatus(Constants.SUCCESSFUL);
+        return response;
+    }
 
     /**
      * @param isAdmin whether the caller is an admin — only admin callers get "criteria" back in the

@@ -75,6 +75,7 @@ public interface Constants {
 
     public static final String CLIENT_VERSION = "clientVersion";
     public static final String NAME = "name";
+    public static final String GLOBAL_ENV_CONFIG = "portal_global_env_config";
 
 
     public static final String SUCCESSFUL = "successful";

@@ -16,6 +16,14 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
     boolean existsByName(String name);
 
     /**
+     * Direct lookup for name-scoped rows (e.g. "portal_global_env_config") that are fetched by the
+     * (name, type, subtype, portal) tuple from the request, bypassing the
+     * role/rootOrg/designation/clientVersion criteria rules entirely.
+     */
+    Optional<FormConfigurationEntity> findByNameIgnoreCaseAndTypeAndSubtypeAndPortal(
+            String name, String type, String subtype, String portal);
+
+    /**
      * Same uniqueness check as existsByName, but excluding the row being updated — so renaming a row
      * to its own current name isn't flagged as a conflict.
      */
