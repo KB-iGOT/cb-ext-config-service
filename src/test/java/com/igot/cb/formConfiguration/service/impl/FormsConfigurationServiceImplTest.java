@@ -164,6 +164,84 @@ class FormsConfigurationServiceImplTest {
         assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
     }
 
+    private Map<String, Object> getGlobalEnvConfigRequest() {
+        Map<String, Object> req = new HashMap<>();
+        req.put(Constants.NAME, "portal_global_env_config");
+        req.put(Constants.TYPE, "page");
+        req.put(Constants.SUBTYPE, "globalenv");
+        req.put(Constants.PORTAL, "portal");
+
+        Map<String, Object> wrapper = new HashMap<>();
+        wrapper.put(Constants.Parameters.REQUEST, req);
+        return wrapper;
+    }
+
+    @Test
+    void readFormConfig_globalEnvConfig_publicUser_found() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findByNameIgnoreCaseAndTypeAndSubtypeAndPortal("portal_global_env_config", "page", "globalenv", "portal"))
+                .thenReturn(Optional.of(entity()));
+        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
+
+        ApiResponse response = service.readFormConfig(getGlobalEnvConfigRequest(), "token", null, null, false);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertEquals(Constants.SUCCESSFUL, response.getParams().getStatus());
+        // The whole point of the bypass: no validation, org lookup, designation resolution, or rule
+        // engine matching runs for a name-scoped request.
+        verifyNoInteractions(validationService, orgReadService, userDesignationService, formConfigRuleEngine);
+    }
+
+    @Test
+    void readFormConfig_globalEnvConfig_admin_found() {
+        when(repository.findByNameIgnoreCaseAndTypeAndSubtypeAndPortal("portal_global_env_config", "page", "globalenv", "portal"))
+                .thenReturn(Optional.of(entity()));
+        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
+
+        ApiResponse response = service.readFormConfig(getGlobalEnvConfigRequest(), "admin1", "ignored-org", List.of("IGNORED"), true);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertTrue(((Map<String, Object>) response.getResult()).containsKey(Constants.CRITERIA));
+        verifyNoInteractions(validationService, orgReadService, userDesignationService, formConfigRuleEngine);
+        verifyNoInteractions(accessTokenValidator);
+    }
+
+    @Test
+    void readFormConfig_globalEnvConfig_notFound() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findByNameIgnoreCaseAndTypeAndSubtypeAndPortal("portal_global_env_config", "page", "globalenv", "portal"))
+                .thenReturn(Optional.empty());
+
+        ApiResponse response = service.readFormConfig(getGlobalEnvConfigRequest(), "token", null, null, false);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+        assertEquals(Constants.FAILED, response.getParams().getStatus());
+    }
+
+    @Test
+    void readFormConfig_globalEnvConfig_nameMatchIsCaseInsensitive() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        Map<String, Object> request = getGlobalEnvConfigRequest();
+        ((Map<String, Object>) request.get(Constants.Parameters.REQUEST)).put(Constants.NAME, "Portal_Global_ENV_Config");
+        when(repository.findByNameIgnoreCaseAndTypeAndSubtypeAndPortal("Portal_Global_ENV_Config", "page", "globalenv", "portal"))
+                .thenReturn(Optional.of(entity()));
+        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
+
+        ApiResponse response = service.readFormConfig(request, "token", null, null, false);
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfig_globalEnvConfig_publicUser_invalidToken_unauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badtoken")).thenReturn(null);
+
+        ApiResponse response = service.readFormConfig(getGlobalEnvConfigRequest(), "badtoken", null, null, false);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+        verifyNoInteractions(repository);
+    }
+
     @Test
     void createFormConfigV2_success() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
