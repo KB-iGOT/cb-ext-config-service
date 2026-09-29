@@ -54,29 +54,38 @@ public class ValidationService {
             } else if (((String) requestObject.get(Constants.NAME)).length() > 250) {
                 validationMsg = Constants.ResponseMessages.FIELD_NAME_INVALID_LENGTH;
             }
-            if(ObjectUtils.isEmpty(requestObject.get(Constants.CRITERIA))){
-                validationMsg = Constants.ResponseMessages.FIELD_CRIETERIA_MISSING;
-            }else if(requestObject.get(Constants.CRITERIA) instanceof Map<?,?>){
+            // Name-scoped rows (e.g. "portal_global_env_config") aren't matched by role/rootOrg or
+            // designation criteria at read time (see FormsConfigurationServiceImpl#readFormConfigByName)
+            // - they're looked up by name alone - so unlike every other row, criteria is optional here,
+            // same as the create API already allows for every row.
+            boolean isGlobalEnvConfig = requestObject.get(Constants.NAME) instanceof String
+                    && Constants.GLOBAL_ENV_CONFIG.equalsIgnoreCase((String) requestObject.get(Constants.NAME));
 
-                   Map<String, Object> criteria = (Map<String, Object>) requestObject.get(Constants.CRITERIA);
+            if (!isGlobalEnvConfig) {
+                if(ObjectUtils.isEmpty(requestObject.get(Constants.CRITERIA))){
+                    validationMsg = Constants.ResponseMessages.FIELD_CRIETERIA_MISSING;
+                }else if(requestObject.get(Constants.CRITERIA) instanceof Map<?,?>){
 
-                   // A config's criteria is either designation+ministryOrStateType scoped (rule 1)
-                   // or role+rootOrg scoped (rule 2) — the two shapes are mutually exclusive.
-                   // ministryOrStateType is stored under the 'rootOrg' key in criteria, same as rule 2.
-                   if (ObjectUtils.isNotEmpty(criteria.get(Constants.DESIGNATION))) {
-                       if (!(criteria.get(Constants.ROOTORG) instanceof String) ||
-                               StringUtils.isBlank((String) criteria.get(Constants.ROOTORG))) {
-                           validationMsg = Constants.ResponseMessages.FIELD_MINISTRY_OR_STATE_TYPE_MISSING;
-                       }
-                   } else {
-                       if (!(criteria.get(Constants.ROLE) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROLE))) {
-                           validationMsg = Constants.ResponseMessages.FIELD_ROLE_MISSING;
-                       }
-                       if (!(criteria.get(Constants.ROOTORG) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROOTORG))) {
-                           validationMsg = Constants.ResponseMessages.FIELD_ROOTORG_MISSING;
+                       Map<String, Object> criteria = (Map<String, Object>) requestObject.get(Constants.CRITERIA);
+
+                       // A config's criteria is either designation+ministryOrStateType scoped (rule 1)
+                       // or role+rootOrg scoped (rule 2) — the two shapes are mutually exclusive.
+                       // ministryOrStateType is stored under the 'rootOrg' key in criteria, same as rule 2.
+                       if (ObjectUtils.isNotEmpty(criteria.get(Constants.DESIGNATION))) {
+                           if (!(criteria.get(Constants.ROOTORG) instanceof String) ||
+                                   StringUtils.isBlank((String) criteria.get(Constants.ROOTORG))) {
+                               validationMsg = Constants.ResponseMessages.FIELD_MINISTRY_OR_STATE_TYPE_MISSING;
+                           }
+                       } else {
+                           if (!(criteria.get(Constants.ROLE) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROLE))) {
+                               validationMsg = Constants.ResponseMessages.FIELD_ROLE_MISSING;
+                           }
+                           if (!(criteria.get(Constants.ROOTORG) instanceof String) || StringUtils.isBlank((String) criteria.get(Constants.ROOTORG))) {
+                               validationMsg = Constants.ResponseMessages.FIELD_ROOTORG_MISSING;
+                           }
                        }
                    }
-               }
+            }
 
         }
         if (Constants.Parameters.READ.equalsIgnoreCase(operation) ) {
