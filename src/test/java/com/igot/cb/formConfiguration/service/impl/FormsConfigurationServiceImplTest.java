@@ -267,5 +267,232 @@ class FormsConfigurationServiceImplTest {
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
     }
+
+    @Test
+    void createFormConfig_invalidToken_returnsUnauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badToken")).thenReturn(null);
+
+        ApiResponse response = service.createFormConfig(getRequest(), "badToken");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+        verify(validationService, never()).validateForm(anyMap(), anyString());
+    }
+
+    @Test
+    void createFormConfig_validationFailure_returnsBadRequest() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.CREATE))).thenReturn("Validation error");
+
+        ApiResponse response = service.createFormConfig(getRequest(), "token");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+    }
+
+    @Test
+    void createFormConfig_existingFormConfig_delegatesToUpdate() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.CREATE))).thenReturn(Constants.SUCCESSFUL);
+        when(validationService.validateFormData(anyMap())).thenReturn(entity());
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
+                .thenReturn(Optional.of(entity()));
+        when(objectMapper.valueToTree(any())).thenReturn(mock(com.fasterxml.jackson.databind.JsonNode.class));
+        when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
+
+        ApiResponse response = service.createFormConfig(getRequest(), "token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        assertEquals(Constants.FORM_CONFIG_EXIST, response.getMessage());
+    }
+
+    @Test
+    void createFormConfig_exception_returnsInternalServerError() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.CREATE))).thenThrow(new RuntimeException("boom"));
+
+        ApiResponse response = service.createFormConfig(getRequest(), "token");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfig_invalidToken_returnsUnauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badToken")).thenReturn(null);
+
+        ApiResponse response = service.readFormConfig(getRequest(), "badToken", null, null, false);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfig_validationFailure_returnsBadRequest() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenReturn("Validation error");
+
+        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfig_exception_returnsInternalServerError() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.READ))).thenThrow(new RuntimeException("boom"));
+
+        ApiResponse response = service.readFormConfig(getRequest(), "token", null, null, false);
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfig_invalidToken_returnsUnauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badToken")).thenReturn(null);
+
+        ApiResponse response = service.updateFormConfig(getRequest(), "badToken");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfig_validationFailure_returnsBadRequest() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn("Validation error");
+
+        ApiResponse response = service.updateFormConfig(getRequest(), "token");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfig_notFound_returnsNotFound() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+        when(repository.getFormConfigDataByCriteria(eq("page"), eq("player test"), eq("mobile"), eq("org1"), any(), any()))
+                .thenReturn(Optional.empty());
+
+        ApiResponse response = service.updateFormConfig(getRequest(), "token");
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfig_exception_returnsInternalServerError() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenThrow(new RuntimeException("boom"));
+
+        ApiResponse response = service.updateFormConfig(getRequest(), "token");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+    }
+
+    @Test
+    void createFormConfigV2_invalidToken_returnsUnauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badToken")).thenReturn(null);
+
+        ApiResponse response = service.createFormConfigV2(getRequest(), "badToken");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+    }
+
+    @Test
+    void createFormConfigV2_exception_returnsInternalServerError() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateV2CreateForm(anyMap())).thenThrow(new RuntimeException("boom"));
+
+        ApiResponse response = service.createFormConfigV2(getRequest(), "token");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfigById_invalidToken_returnsUnauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badToken")).thenReturn(null);
+
+        ApiResponse response = service.readFormConfigById(1L, "badToken");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfigById_exception_returnsInternalServerError() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findById(1L)).thenThrow(new RuntimeException("boom"));
+
+        ApiResponse response = service.readFormConfigById(1L, "token");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfigV2_invalidToken_returnsUnauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badToken")).thenReturn(null);
+
+        ApiResponse response = service.updateFormConfigV2(getRequest(), "badToken");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfigV2_validationFailure_returnsBadRequest() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn("Validation error");
+
+        ApiResponse response = service.updateFormConfigV2(getRequest(), "token");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfigV2_missingFormId_returnsBadRequest() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+
+        ApiResponse response = service.updateFormConfigV2(getRequest(), "token");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfigV2_notFound_returnsNotFound() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+        when(repository.findById(1L)).thenReturn(Optional.empty());
+
+        Map<String, Object> req = getRequest();
+        ((Map<String, Object>) req.get(Constants.Parameters.REQUEST)).put("id", 1L);
+
+        ApiResponse response = service.updateFormConfigV2(req, "token");
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+    }
+
+    @Test
+    void updateFormConfigV2_exception_returnsInternalServerError() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenThrow(new RuntimeException("boom"));
+
+        ApiResponse response = service.updateFormConfigV2(getRequest(), "token");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+    }
+
+    @Test
+    void listFormConfigs_invalidToken_returnsUnauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badToken")).thenReturn(null);
+
+        ApiResponse response = service.listFormConfigs("badToken");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+    }
+
+    @Test
+    void listFormConfigs_exception_returnsInternalServerError() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findAll()).thenThrow(new RuntimeException("boom"));
+
+        ApiResponse response = service.listFormConfigs("token");
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getResponseCode());
+    }
 }
 

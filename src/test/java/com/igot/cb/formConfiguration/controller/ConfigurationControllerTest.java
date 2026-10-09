@@ -93,6 +93,89 @@ class ConfigurationControllerTest {
             .andExpect(status().isOk());
   }
 
+  @Test
+  void readFormConfigForAdmin_shouldReturnOk() throws Exception {
+    Map<String, Object> request = getRequest();
+
+    ApiResponse response = new ApiResponse();
+    response.setResponseCode(HttpStatus.OK);
+
+    Mockito.when(formsConfigurationService.readFormConfig(
+                    anyMap(),
+                    eq("user1"),
+                    eq("org1"),
+                    anyList(),
+                    eq(true)))
+            .thenReturn(response);
+
+    mockMvc.perform(post("/formsConfig/admin/read/{userId}", "user1")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header(Constants.X_AUTH_USER_ORG_ID, "org1")
+                    .header(Constants.X_AUTH_USER_ROLES, "MDO_ADMIN")
+                    .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk());
+  }
+
+  @Test
+  void createFormConfigV2_shouldReturnOk() throws Exception {
+    Map<String, Object> request = getRequest();
+
+    ApiResponse response = new ApiResponse();
+    response.setResponseCode(HttpStatus.OK);
+
+    Mockito.when(formsConfigurationService.createFormConfigV2(anyMap(), anyString()))
+            .thenReturn(response);
+
+    mockMvc.perform(post("/formsConfig/v2/create")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header(Constants.Parameters.X_AUTH_TOKEN, "token")
+                    .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk());
+  }
+
+  @Test
+  void readFormConfigById_shouldReturnOk() throws Exception {
+    ApiResponse response = new ApiResponse();
+    response.setResponseCode(HttpStatus.OK);
+
+    Mockito.when(formsConfigurationService.readFormConfigById(eq(1L), anyString()))
+            .thenReturn(response);
+
+    mockMvc.perform(get("/formsConfig/v2/admin/read/{formId}", 1L)
+                    .header(Constants.Parameters.X_AUTH_TOKEN, "token"))
+            .andExpect(status().isOk());
+  }
+
+  @Test
+  void updateFormConfigV2_shouldReturnOk() throws Exception {
+    Map<String, Object> request = getRequest();
+
+    ApiResponse response = new ApiResponse();
+    response.setResponseCode(HttpStatus.OK);
+
+    Mockito.when(formsConfigurationService.updateFormConfigV2(anyMap(), anyString()))
+            .thenReturn(response);
+
+    mockMvc.perform(put("/formsConfig/v2/update")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header(Constants.Parameters.X_AUTH_TOKEN, "token")
+                    .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk());
+  }
+
+  @Test
+  void listFormConfigs_shouldReturnOk() throws Exception {
+    ApiResponse response = new ApiResponse();
+    response.setResponseCode(HttpStatus.OK);
+
+    Mockito.when(formsConfigurationService.listFormConfigs(anyString()))
+            .thenReturn(response);
+
+    mockMvc.perform(get("/formsConfig/v2/admin/list")
+                    .header(Constants.Parameters.X_AUTH_TOKEN, "token"))
+            .andExpect(status().isOk());
+  }
+
   private Map<String, Object> getRequest() {
     Map<String, Object> data = new HashMap<>();
     data.put("field", "value");
