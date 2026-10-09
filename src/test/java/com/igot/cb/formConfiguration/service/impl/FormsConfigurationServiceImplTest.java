@@ -486,6 +486,21 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
+    void updateFormConfigV2_resolvesFormId_fromFormIdKey() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(validationService.validateForm(anyMap(), eq(Constants.Parameters.UPDATE))).thenReturn(Constants.SUCCESSFUL);
+        when(repository.findById(1L)).thenReturn(Optional.empty());
+
+        Map<String, Object> req = getRequest();
+        ((Map<String, Object>) req.get(Constants.Parameters.REQUEST)).put("formId", 1L);
+
+        ApiResponse response = service.updateFormConfigV2(req, "token");
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+        verify(repository).findById(1L);
+    }
+
+    @Test
     void listFormConfigs_exception_returnsInternalServerError() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(repository.findAll()).thenThrow(new RuntimeException("boom"));
