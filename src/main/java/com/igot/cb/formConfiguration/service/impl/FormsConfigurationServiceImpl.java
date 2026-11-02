@@ -215,6 +215,23 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
      * @param isAdmin whether the caller is an admin — only admin callers get "criteria" back in the
      *                result; it's internal scoping metadata that regular callers don't need to see.
      */
+    /**
+     * Learner-portal role bucket: {@code volunteer} only when the caller holds VOLUNTEER and not
+     * PUBLIC; every other combination (PUBLIC, both, admin-only roles) is {@code public}.
+     */
+    static String roleBucketOf(List<String> roles) {
+        boolean isPublic = false;
+        boolean isVolunteer = false;
+        for (String role : roles == null ? List.<String>of() : roles) {
+            if (Constants.ROLE_PUBLIC.equalsIgnoreCase(role)) {
+                isPublic = true;
+            } else if (Constants.ROLE_VOLUNTEER.equalsIgnoreCase(role)) {
+                isVolunteer = true;
+            }
+        }
+        return isVolunteer && !isPublic ? Constants.ROLE_VOLUNTEER : Constants.ROLE_PUBLIC;
+    }
+
     private Map<String, Object> buildResult(FormConfigurationEntity formConfigurationEntity, boolean isAdmin) {
         Map<String, Object> result = new HashMap<>();
         result.put(Constants.NAME, formConfigurationEntity.getName());
@@ -624,19 +641,25 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
     }
 
     /**
-     * Catalogue for client-side form selection — see {@link FormConfigReadCache#getCatalog()} for the
-     * cache tiers. Only the token check is per-caller; the payload is user-independent.
+     * Catalogue for client-side form selection, narrowed to the caller's role bucket (from the JWT
+     * roles) and the requested client ({@code portal} / {@code mobile}). See
+     * {@link FormConfigReadCache#getCatalog()} for the cache tiers; the full catalogue is cached once
+     * and sliced per request.
      */
     @Override
-    public ApiResponse readFormDetails(String token) {
+    public ApiResponse readFormDetails(String portal, String token) {
         ApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_FORM_DETAILS_API);
         try {
+            if (StringUtils.isBlank(portal)) {
+                ProjectUtil.returnErrorMsg(Constants.CHECK_REQUEST_PARAMS, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+                return response;
+            }
             UserDetails userDetails = accessTokenValidator.fetchUserDetailsFromToken(token);
             if (ObjectUtils.isEmpty(userDetails)) {
                 ProjectUtil.returnErrorMsg(Constants.INVALID_AUTH_TOKEN, HttpStatus.UNAUTHORIZED, response, Constants.FAILED);
                 return response;
             }
-            response.putAll(readCache.getCatalog());
+            response.putAll(readCache.getCatalog(roleBucketOf(userDetails.getUserRoles()), portal.toLowerCase()));
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
         } catch (Exception e) {

@@ -73,6 +73,32 @@ public class FormConfigReadCache {
         return catalogCache.get(CATALOG_KEY, k -> loadCatalog());
     }
 
+    /**
+     * The catalogue narrowed to one role bucket and one client: {@code forms} becomes the flat list
+     * for (role, portal) — empty when there is none — and the matching contract is carried over.
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getCatalog(String role, String portal) {
+        Map<String, Object> full = getCatalog();
+        List<Map<String, Object>> forms = List.of();
+        Object buckets = full.get(Constants.FORMS);
+        if (buckets instanceof Map<?, ?> byRole) {
+            Object byPortal = byRole.get(role);
+            if (byPortal instanceof Map<?, ?> portals) {
+                Object list = portals.get(portal);
+                if (list instanceof List<?> l) {
+                    forms = (List<Map<String, Object>>) l;
+                }
+            }
+        }
+        Map<String, Object> slice = new LinkedHashMap<>();
+        slice.put(Constants.RULE_PRIORITY, full.get(Constants.RULE_PRIORITY));
+        slice.put(Constants.USER_FIELDS, full.get(Constants.USER_FIELDS));
+        slice.put(Constants.VALUE_PRIORITY, full.get(Constants.VALUE_PRIORITY));
+        slice.put(Constants.FORMS, forms);
+        return slice;
+    }
+
     public Optional<FormConfigurationEntity> getById(long formId) {
         return formCache.get(formId, formConfigurationRepository::findById);
     }

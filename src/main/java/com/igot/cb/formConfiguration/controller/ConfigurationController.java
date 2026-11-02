@@ -26,14 +26,16 @@ public class ConfigurationController {
   }
 
   /**
-   * Catalogue of every form (id/name/type/subType/clientVersion/criteria, no data) plus the matching
-   * contract (rulePriority/userFields/valuePriority). The client picks the form; see
-   * {@link #readFormConfigByIdForUser}.
+   * Catalogue of the forms for one client ({@code portal} / {@code mobile}) and the caller's role
+   * bucket (public / volunteer, from the JWT): id/name/type/subType/clientVersion/criteria, no data,
+   * plus the matching contract (rulePriority/userFields/valuePriority). The client picks the form;
+   * see {@link #readFormConfigByIdForUser}.
    */
-  @GetMapping("/v1/readFormDetails")
+  @GetMapping("/v1/readFormDetails/{portal}")
   public ResponseEntity<ApiResponse> readFormDetails(
+          @PathVariable("portal") String portal,
           @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
-    ApiResponse response = formsConfigurationService.readFormDetails(token);
+    ApiResponse response = formsConfigurationService.readFormDetails(portal, token);
     return new ResponseEntity<>(response, response.getResponseCode());
   }
 

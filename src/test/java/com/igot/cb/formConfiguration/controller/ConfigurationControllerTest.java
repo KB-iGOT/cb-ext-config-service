@@ -50,11 +50,12 @@ class ConfigurationControllerTest {
   void readFormDetails_shouldReturnOk() throws Exception {
     ApiResponse response = new ApiResponse();
     response.setResponseCode(HttpStatus.OK);
-    Mockito.when(formsConfigurationService.readFormDetails(anyString())).thenReturn(response);
+    Mockito.when(formsConfigurationService.readFormDetails(eq("mobile"), anyString())).thenReturn(response);
 
-    mockMvc.perform(get("/formsConfig/v1/readFormDetails")
+    mockMvc.perform(get("/formsConfig/v1/readFormDetails/mobile")
                     .header(Constants.Parameters.X_AUTH_TOKEN, "token"))
             .andExpect(status().isOk());
+    Mockito.verify(formsConfigurationService).readFormDetails("mobile", "token");
   }
 
   @Test

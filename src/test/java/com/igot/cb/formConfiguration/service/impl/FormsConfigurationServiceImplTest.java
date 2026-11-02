@@ -251,30 +251,70 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
-    void readFormDetails_success_returnsCatalogueFromReadCache() {
+    void readFormDetails_publicUser_portal_returnsPublicPortalSlice() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        Map<String, Object> catalog = new LinkedHashMap<>();
-        catalog.put(Constants.RULE_PRIORITY, List.of("rootOrg"));
-        catalog.put(Constants.FORMS, Map.of("public", Map.of("portal", List.of())));
-        when(readCache.getCatalog()).thenReturn(catalog);
+        Map<String, Object> slice = new LinkedHashMap<>();
+        slice.put(Constants.RULE_PRIORITY, List.of("rootOrg"));
+        slice.put(Constants.FORMS, List.of(Map.of("id", 1L)));
+        when(readCache.getCatalog("public", "portal")).thenReturn(slice);
 
-        ApiResponse response = service.readFormDetails("token");
+        ApiResponse response = service.readFormDetails("portal", "token");
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
         Map<String, Object> result = (Map<String, Object>) response.getResult();
         assertEquals(List.of("rootOrg"), result.get(Constants.RULE_PRIORITY));
-        assertTrue(result.containsKey(Constants.FORMS));
+        assertEquals(1, ((List<?>) result.get(Constants.FORMS)).size());
         verifyNoInteractions(repository);
+    }
+
+    @Test
+    void readFormDetails_volunteerOnlyUser_mobile_usesVolunteerBucket_andLowercasesPortal() {
+        userDetails.setUserRoles(List.of("VOLUNTEER", "CONTENT_CREATOR"));
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(readCache.getCatalog("volunteer", "mobile")).thenReturn(new LinkedHashMap<>());
+
+        ApiResponse response = service.readFormDetails("Mobile", "token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        verify(readCache).getCatalog("volunteer", "mobile");
+    }
+
+    @Test
+    void readFormDetails_userWithPublicAndVolunteer_isPublic() {
+        userDetails.setUserRoles(List.of("PUBLIC", "VOLUNTEER"));
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(readCache.getCatalog("public", "portal")).thenReturn(new LinkedHashMap<>());
+
+        service.readFormDetails("portal", "token");
+
+        verify(readCache).getCatalog("public", "portal");
+    }
+
+    @Test
+    void roleBucketOf_rules() {
+        assertEquals("public", FormsConfigurationServiceImpl.roleBucketOf(List.of("PUBLIC")));
+        assertEquals("public", FormsConfigurationServiceImpl.roleBucketOf(List.of("PUBLIC", "VOLUNTEER")));
+        assertEquals("public", FormsConfigurationServiceImpl.roleBucketOf(List.of("MDO_ADMIN")));
+        assertEquals("public", FormsConfigurationServiceImpl.roleBucketOf(null));
+        assertEquals("volunteer", FormsConfigurationServiceImpl.roleBucketOf(List.of("volunteer")));
     }
 
     @Test
     void readFormDetails_invalidToken_unauthorized() {
         when(accessTokenValidator.fetchUserDetailsFromToken("badtoken")).thenReturn(null);
 
-        ApiResponse response = service.readFormDetails("badtoken");
+        ApiResponse response = service.readFormDetails("portal", "badtoken");
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
         verifyNoInteractions(readCache);
+    }
+
+    @Test
+    void readFormDetails_blankPortal_badRequest() {
+        ApiResponse response = service.readFormDetails(" ", "token");
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getResponseCode());
+        verifyNoInteractions(readCache, accessTokenValidator);
     }
 
     @Test
