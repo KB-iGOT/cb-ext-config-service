@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,6 +41,33 @@ class ConfigurationControllerTest {
 
   @MockBean
   FormConfigurationRepository formConfigurationRepository;
+
+  // the eviction pub/sub listener needs a RedisConnectionFactory, which this slice test doesn't provide
+  @MockBean
+  private RedisMessageListenerContainer formConfigEvictionListener;
+
+  @Test
+  void readFormDetails_shouldReturnOk() throws Exception {
+    ApiResponse response = new ApiResponse();
+    response.setResponseCode(HttpStatus.OK);
+    Mockito.when(formsConfigurationService.readFormDetails(anyString())).thenReturn(response);
+
+    mockMvc.perform(get("/formsConfig/v1/readFormDetails")
+                    .header(Constants.Parameters.X_AUTH_TOKEN, "token"))
+            .andExpect(status().isOk());
+  }
+
+  @Test
+  void readFormConfigByIdForUser_shouldReturnOk_andNotBeAdmin() throws Exception {
+    ApiResponse response = new ApiResponse();
+    response.setResponseCode(HttpStatus.OK);
+    Mockito.when(formsConfigurationService.readFormConfigById(eq(7L), anyString(), eq(false))).thenReturn(response);
+
+    mockMvc.perform(get("/formsConfig/v1/read/7")
+                    .header(Constants.Parameters.X_AUTH_TOKEN, "token"))
+            .andExpect(status().isOk());
+    Mockito.verify(formsConfigurationService).readFormConfigById(7L, "token", false);
+  }
 
   @Test
   void readFormConfigForUser_shouldReturnOk() throws Exception {

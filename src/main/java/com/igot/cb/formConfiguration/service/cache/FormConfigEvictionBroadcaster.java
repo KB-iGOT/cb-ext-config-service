@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.stereotype.Component;
@@ -30,7 +30,7 @@ public class FormConfigEvictionBroadcaster {
     private static final String MSG_FORM_PREFIX = "FORM:";
 
     @Autowired
-    private StringRedisTemplate redisTemplate;
+    private RedisTemplate<String, String> redisTemplate;
 
     @Autowired
     private FormConfigReadCache readCache;

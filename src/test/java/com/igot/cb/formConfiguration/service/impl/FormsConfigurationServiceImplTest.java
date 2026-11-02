@@ -11,6 +11,8 @@ import com.igot.cb.formConfiguration.rule.FormConfigResolutionContext;
 import com.igot.cb.formConfiguration.rule.FormConfigRuleEngine;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
+import com.igot.cb.formConfiguration.service.cache.FormConfigEvictionBroadcaster;
+import com.igot.cb.formConfiguration.service.cache.FormConfigReadCache;
 import com.igot.cb.util.ApiResponse;
 import com.igot.cb.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +61,12 @@ class FormsConfigurationServiceImplTest {
 
     @Mock
     private CacheService cacheService;
+
+    @Mock
+    private FormConfigReadCache readCache;
+
+    @Mock
+    private FormConfigEvictionBroadcaster evictionBroadcaster;
 
     private UserDetails userDetails;
 
@@ -243,6 +251,33 @@ class FormsConfigurationServiceImplTest {
     }
 
     @Test
+    void readFormDetails_success_returnsCatalogueFromReadCache() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        Map<String, Object> catalog = new LinkedHashMap<>();
+        catalog.put(Constants.RULE_PRIORITY, List.of("rootOrg"));
+        catalog.put(Constants.FORMS, Map.of("public", Map.of("portal", List.of())));
+        when(readCache.getCatalog()).thenReturn(catalog);
+
+        ApiResponse response = service.readFormDetails("token");
+
+        assertEquals(HttpStatus.OK, response.getResponseCode());
+        Map<String, Object> result = (Map<String, Object>) response.getResult();
+        assertEquals(List.of("rootOrg"), result.get(Constants.RULE_PRIORITY));
+        assertTrue(result.containsKey(Constants.FORMS));
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void readFormDetails_invalidToken_unauthorized() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("badtoken")).thenReturn(null);
+
+        ApiResponse response = service.readFormDetails("badtoken");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getResponseCode());
+        verifyNoInteractions(readCache);
+    }
+
+    @Test
     void createFormConfigV2_success() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
         when(validationService.validateV2CreateForm(anyMap())).thenReturn(Constants.SUCCESSFUL);
@@ -251,6 +286,7 @@ class FormsConfigurationServiceImplTest {
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
         verify(repository).save(any(FormConfigurationEntity.class));
+        verify(evictionBroadcaster).formCreated();
     }
 
     @Test
@@ -266,7 +302,7 @@ class FormsConfigurationServiceImplTest {
     @Test
     void readFormConfigById_success() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(repository.findById(1L)).thenReturn(Optional.of(entity()));
+        when(readCache.getById(1L)).thenReturn(Optional.of(entity()));
 
         ApiResponse response = service.readFormConfigById(1L, "token", false);
 
@@ -277,7 +313,7 @@ class FormsConfigurationServiceImplTest {
     @Test
     void readFormConfigById_admin_includesCriteria() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(repository.findById(1L)).thenReturn(Optional.of(entity()));
+        when(readCache.getById(1L)).thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
         ApiResponse response = service.readFormConfigById(1L, "token", true);
@@ -289,7 +325,7 @@ class FormsConfigurationServiceImplTest {
     @Test
     void readFormConfigById_notFound() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(repository.findById(1L)).thenReturn(Optional.empty());
+        when(readCache.getById(1L)).thenReturn(Optional.empty());
 
         ApiResponse response = service.readFormConfigById(1L, "token", false);
 
@@ -312,6 +348,7 @@ class FormsConfigurationServiceImplTest {
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
         verify(repository).save(any(FormConfigurationEntity.class));
+        verify(evictionBroadcaster).formUpdated(1L);
     }
 
     @Test
