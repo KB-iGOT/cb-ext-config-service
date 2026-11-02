@@ -15,6 +15,9 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
 
     boolean existsByName(String name);
 
+    /** Every row without its {@code data} column — the catalogue served by /formsConfig/v1/readFormDetails. */
+    List<FormConfigurationSummary> findAllProjectedBy();
+
     /**
      * Direct lookup for name-scoped rows (e.g. "portal_global_env_config") that are fetched by the
      * (name, type, subtype, portal) tuple from the request, bypassing the

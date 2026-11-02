@@ -25,6 +25,27 @@ public class ConfigurationController {
     return new ResponseEntity<>(response, response.getResponseCode());
   }
 
+  /**
+   * Catalogue of every form (id/name/type/subType/clientVersion/criteria, no data) plus the matching
+   * contract (rulePriority/userFields/valuePriority). The client picks the form; see
+   * {@link #readFormConfigByIdForUser}.
+   */
+  @GetMapping("/v1/readFormDetails")
+  public ResponseEntity<ApiResponse> readFormDetails(
+          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
+    ApiResponse response = formsConfigurationService.readFormDetails(token);
+    return new ResponseEntity<>(response, response.getResponseCode());
+  }
+
+  /** Non-admin read by id: same result shape as /read (no criteria), no profile-based resolution. */
+  @GetMapping("/v1/read/{formId}")
+  public ResponseEntity<ApiResponse> readFormConfigByIdForUser(
+          @PathVariable("formId") Long formId,
+          @RequestHeader(Constants.Parameters.X_AUTH_TOKEN) String token) {
+    ApiResponse response = formsConfigurationService.readFormConfigById(formId, token, false);
+    return new ResponseEntity<>(response, response.getResponseCode());
+  }
+
   @PostMapping("/admin/read/{userId}")
   public ResponseEntity<ApiResponse> readFormConfigForAdmin(
           @RequestBody Map<String, Object> request,
