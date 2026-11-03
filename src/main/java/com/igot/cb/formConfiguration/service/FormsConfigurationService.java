@@ -18,4 +18,5 @@ public interface FormsConfigurationService {
     ApiResponse updateFormConfigV2(Map<String, Object> request, String token);
 
     ApiResponse listFormConfigs(String token);
+    ApiResponse readFormDetails(String portal, String token);
 }
