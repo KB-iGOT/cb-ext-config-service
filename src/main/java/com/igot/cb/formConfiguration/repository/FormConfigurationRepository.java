@@ -1,6 +1,7 @@
 package com.igot.cb.formConfiguration.repository;
 
 
+import com.igot.cb.config.FormConfigTableNameStrategy;
 import com.igot.cb.formConfiguration.entity.FormConfigurationEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -75,7 +76,7 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
           )
     ORDER BY (criteria -> 'ministryOrStateType' IS NOT NULL AND jsonb_array_length(criteria -> 'ministryOrStateType') > 0) DESC
     LIMIT 1
-    """, nativeQuery = true)
+    """, nativeQuery = true, queryRewriter = FormConfigTableNameStrategy.class)
     Optional<FormConfigurationEntity> getFormConfigByDesignation(
             @Param("type") String type,
             @Param("subtype") String subtype,
@@ -102,7 +103,7 @@ public interface FormConfigurationRepository extends JpaRepository<FormConfigura
       AND client_version = :clientVersion
       AND criteria -> 'designation' IS NULL
     LIMIT 1
-    """, nativeQuery = true)
+    """, nativeQuery = true, queryRewriter = FormConfigTableNameStrategy.class)
     Optional<FormConfigurationEntity> getDefaultFormConfigDataByCriteria(
             @Param("type") String type,
             @Param("subtype") String subtype,
