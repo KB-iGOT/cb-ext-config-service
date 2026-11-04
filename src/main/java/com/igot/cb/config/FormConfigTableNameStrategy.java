@@ -41,9 +41,9 @@ public class FormConfigTableNameStrategy
     private final Map<String, String> rewrittenQueries = new ConcurrentHashMap<>();
 
     public FormConfigTableNameStrategy(
-            @Value("${form.config.db.tableName:" + DEFAULT_TABLE_NAME + "}") String tableName) {
+            @Value("${form.config.db.table.name:" + DEFAULT_TABLE_NAME + "}") String tableName) {
         if (tableName == null || !VALID_TABLE_NAME.matcher(tableName.trim()).matches()) {
-            throw new IllegalArgumentException("Invalid form.config.db.tableName: '" + tableName + "'");
+            throw new IllegalArgumentException("Invalid form.config.db.table.name: '" + tableName + "'");
         }
         this.formConfigurationTable = tableName.trim();
         this.usesDefaultTable = DEFAULT_TABLE_NAME.equals(this.formConfigurationTable);
