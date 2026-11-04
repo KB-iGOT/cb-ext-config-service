@@ -91,3 +91,13 @@ target/classes/com/igot/cb/formConfiguration/rule/FormConfigResolutionContext$Fo
 target/classes/com/igot/cb/formConfiguration/rule/FormConfigRuleEngine.class
 target/classes/com/igot/cb/formConfiguration/rule/FormConfigRuleProperties.class
 target/classes/com/igot/cb/formConfiguration/rule/NoCriteriaConfigurationRule.class
+target/classes/sampleOutput.json
+target/classes/com/igot/cb/formConfiguration/repository/FormConfigurationSummary.class
+target/classes/com/igot/cb/formConfiguration/rule/FormConfigCatalogProperties.class
+target/classes/com/igot/cb/formConfiguration/service/cache/FormConfigEvictionBroadcaster.class
+target/classes/com/igot/cb/formConfiguration/service/cache/FormConfigReadCache.class
+target/classes/com/igot/cb/formConfiguration/service/cache/FormConfigReadCache$1.class
+target/classes/com/igot/cb/formConfiguration/service/cache/FormConfigReadCache$2.class
+target/test-classes/com/igot/cb/formConfiguration/service/Validation/ValidationServiceTest.class
+target/surefire-reports/com.igot.cb.formConfiguration.service.Validation.ValidationServiceTest.txt
+target/surefire-reports/TEST-com.igot.cb.formConfiguration.service.Validation.ValidationServiceTest.xml

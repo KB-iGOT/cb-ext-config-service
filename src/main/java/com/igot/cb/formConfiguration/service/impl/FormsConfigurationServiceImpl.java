@@ -11,6 +11,8 @@ import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
 import com.igot.cb.formConfiguration.rule.FormConfigResolutionContext;
 import com.igot.cb.formConfiguration.rule.FormConfigRuleEngine;
 import com.igot.cb.formConfiguration.service.cache.CacheService;
+import com.igot.cb.formConfiguration.service.cache.FormConfigEvictionBroadcaster;
+import com.igot.cb.formConfiguration.service.cache.FormConfigReadCache;
 import com.igot.cb.formConfiguration.service.FormsConfigurationService;
 import com.igot.cb.formConfiguration.service.Validation.ValidationService;
 import com.igot.cb.util.ApiResponse;
@@ -57,6 +59,12 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
     @Autowired
     private CacheService cacheService;
+
+    @Autowired
+    private FormConfigReadCache readCache;
+
+    @Autowired
+    private FormConfigEvictionBroadcaster evictionBroadcaster;
 
     @Override
     public ApiResponse readFormConfig(Map<String, Object> formConfigData, String authTokenOrUserId,String userOrg,List<String> userRoles,boolean isAdmin) {
@@ -207,6 +215,23 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
      * @param isAdmin whether the caller is an admin — only admin callers get "criteria" back in the
      *                result; it's internal scoping metadata that regular callers don't need to see.
      */
+    /**
+     * Learner-portal role bucket: {@code volunteer} only when the caller holds VOLUNTEER and not
+     * PUBLIC; every other combination (PUBLIC, both, admin-only roles) is {@code public}.
+     */
+    static String roleBucketOf(List<String> roles) {
+        boolean isPublic = false;
+        boolean isVolunteer = false;
+        for (String role : roles == null ? List.<String>of() : roles) {
+            if (Constants.ROLE_PUBLIC.equalsIgnoreCase(role)) {
+                isPublic = true;
+            } else if (Constants.ROLE_VOLUNTEER.equalsIgnoreCase(role)) {
+                isVolunteer = true;
+            }
+        }
+        return isVolunteer && !isPublic ? Constants.ROLE_VOLUNTEER : Constants.ROLE_PUBLIC;
+    }
+
     private Map<String, Object> buildResult(FormConfigurationEntity formConfigurationEntity, boolean isAdmin) {
         Map<String, Object> result = new HashMap<>();
         result.put(Constants.NAME, formConfigurationEntity.getName());
@@ -380,6 +405,8 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
 
             // Save to database
             formConfigurationRepository.save(configurationEntity);
+            // clears the catalogue in memory + Redis on this pod and, via pub/sub, in memory on every other pod
+            evictionBroadcaster.formCreated();
 
             Map<String, Object> result = new HashMap<>();
             result.put("id", configurationEntity.getId());
@@ -422,7 +449,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 return response;
             }
 
-            Optional<FormConfigurationEntity> entityOpt = formConfigurationRepository.findById(formId);
+            Optional<FormConfigurationEntity> entityOpt = readCache.getById(formId);
             if (entityOpt.isEmpty()) {
                 response.getParams().setStatus(Constants.FAILED);
                 response.getParams().setErrMsg("Form configuration not found for id: " + formId);
@@ -542,6 +569,8 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             // ...); invalidate under the old tuple (covers the common case of criteria/data changing
             // in place) and, if any of those four fields changed, also under the new tuple.
             invalidateFormConfigCache(oldType, oldSubtype, oldPortal, oldClientVersion);
+            // clears the catalogue (memory + Redis) and this form (memory) on this pod and, via pub/sub, on every other pod
+            evictionBroadcaster.formUpdated(originalData.getId());
             if (!Objects.equals(oldType, originalData.getType()) || !Objects.equals(oldSubtype, originalData.getSubtype())
                     || !Objects.equals(oldPortal, originalData.getPortal()) || !Objects.equals(oldClientVersion, originalData.getClientVersion())) {
                 invalidateFormConfigCache(originalData.getType(), originalData.getSubtype(), originalData.getPortal(), originalData.getClientVersion());
@@ -604,6 +633,37 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             response.getParams().setStatus(Constants.SUCCESSFUL);
         } catch (Exception e) {
             log.error("Failed to list forms: {}", e.getMessage(), e);
+            response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
+            response.getParams().setErrMsg(Constants.FAILED);
+            response.getParams().setStatus(Constants.FAILED);
+        }
+        return response;
+    }
+
+    /**
+     * Catalogue for client-side form selection, narrowed to the caller's role bucket (from the JWT
+     * roles) and the requested client ({@code portal} / {@code mobile}). See
+     * {@link FormConfigReadCache#getCatalog()} for the cache tiers; the full catalogue is cached once
+     * and sliced per request.
+     */
+    @Override
+    public ApiResponse readFormDetails(String portal, String token) {
+        ApiResponse response = ProjectUtil.createDefaultResponse(Constants.READ_FORM_DETAILS_API);
+        try {
+            if (StringUtils.isBlank(portal)) {
+                ProjectUtil.returnErrorMsg(Constants.CHECK_REQUEST_PARAMS, HttpStatus.BAD_REQUEST, response, Constants.FAILED);
+                return response;
+            }
+            UserDetails userDetails = accessTokenValidator.fetchUserDetailsFromToken(token);
+            if (ObjectUtils.isEmpty(userDetails)) {
+                ProjectUtil.returnErrorMsg(Constants.INVALID_AUTH_TOKEN, HttpStatus.UNAUTHORIZED, response, Constants.FAILED);
+                return response;
+            }
+            response.putAll(readCache.getCatalog(roleBucketOf(userDetails.getUserRoles()), portal.toLowerCase()));
+            response.setResponseCode(HttpStatus.OK);
+            response.getParams().setStatus(Constants.SUCCESSFUL);
+        } catch (Exception e) {
+            log.error("Failed to read form catalogue: {}", e.getMessage(), e);
             response.setResponseCode(HttpStatus.INTERNAL_SERVER_ERROR);
             response.getParams().setErrMsg(Constants.FAILED);
             response.getParams().setStatus(Constants.FAILED);

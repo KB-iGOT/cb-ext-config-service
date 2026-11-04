@@ -127,6 +127,14 @@ public interface Constants {
     public static final String SHA_256_WITH_RSA = "SHA256withRSA";
     public static final String SUB = "sub";
     public static final String FORM_CONFIG_RESULT="form.config.result";
+    public static final String FORM_CONFIG_CATALOG_CACHE_KEY = "form.config.catalog";
+    public static final String READ_FORM_DETAILS_API = "api.form.readFormDetails";
+    public static final String RULE_PRIORITY = "rulePriority";
+    public static final String USER_FIELDS = "userFields";
+    public static final String VALUE_PRIORITY = "valuePriority";
+    public static final String FORMS = "forms";
+    public static final String ROLE_PUBLIC = "public";
+    public static final String ROLE_VOLUNTEER = "volunteer";
 
     public static final String API_REDIS_DELETE = "api.redis.delete";
     public  static final String ERROR_REDIS_KEY_NOTFOUND = "No Keys found, Redis cache is empty";
