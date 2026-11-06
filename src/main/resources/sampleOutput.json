@@ -1,0 +1,239 @@
+{
+  "rulePriority": [
+    "rootOrg",
+    "designation",
+    "ministryOrStateType"
+  ],
+  "userFields": {
+    "rootOrg": [
+      "rootOrgId"
+    ],
+    "designation": [
+      "profileDetails.professionalDetails.0.designation"
+    ],
+    "ministryOrStateType": [
+      "rootOrg.ministryOrStateType",
+      "rootOrg.sbOrgType"
+    ]
+  },
+  "valuePriority": {
+    "ministryOrStateType": [
+      "ministry",
+      "state"
+    ]
+  },
+  "forms": {
+    "public": {
+      "portal": [
+        {
+          "id": 2,
+          "name": "portal_page_application-config-web_public",
+          "subType": "application-config-web",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 29,
+          "name": "portal_page_application-config-web_v2_public",
+          "subType": "application-config-web",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 1,
+          "name": "portal_page_home_public1",
+          "subType": "global-web",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 28,
+          "name": "portal_page_global-web-v2_public",
+          "subType": "global-web",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 55,
+          "name": "portal_global_env_config",
+          "subType": "globalenv",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 3,
+          "name": "portal_page_home_public2",
+          "subType": "home",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 30,
+          "name": "portal_page_home_v2_public",
+          "subType": "home",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 40,
+          "name": "portal_page_home_designation_sheet_1_ministry",
+          "subType": "home",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*",
+            "designation": [
+              "Director",
+              "Deputy Secretary",
+              "Assistant Superintendent of Police",
+              "Superintendent of Police",
+              "Senior Superintendent of Police",
+              "Deputy Commissioner of Police",
+              "Additional Commissioner of Police",
+              "Joint Commissioner of Income Tax",
+              "Additional Commissioner of Income Tax"
+            ],
+            "ministryOrStateType": [
+              "ministry"
+            ]
+          }
+        },
+        {
+          "id": 43,
+          "name": "portal_page_home_designation_sheet_2_state",
+          "subType": "home",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*",
+            "designation": [
+              "Deputy Inspector General of Police",
+              "Inspector General of Police",
+              "Additional Director General of Police",
+              "Special Director General of Police",
+              "Director General of Police",
+              "Joint Commissioner of Police",
+              "Commissioner of Police",
+              "Special Secretary",
+              "Secretary",
+              "Commissioner and Secretary",
+              "Principal Secretary",
+              "Additional Chief Secretary",
+              "Chief Secretary",
+              "Commissioner"
+            ],
+            "ministryOrStateType": [
+              "state"
+            ]
+          }
+        },
+        {
+          "id": 5,
+          "name": "portal_page_profile_public",
+          "subType": "profile",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 4,
+          "name": "portal_page_toc_public",
+          "subType": "toc",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        }
+      ]
+    },
+    "volunteer": {
+      "portal": [
+        {
+          "id": 7,
+          "name": "portal_page_application-config-web_volunteer",
+          "subType": "application-config-web",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 32,
+          "name": "portal_page_application-config-web_v2_volunteer",
+          "subType": "application-config-web",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 31,
+          "name": "portal_page_global-web-v2_volunteer",
+          "subType": "global-web",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 55,
+          "name": "portal_global_env_config",
+          "subType": "globalenv",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 8,
+          "name": "portal_page_home_volunteer",
+          "subType": "home",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 33,
+          "name": "portal_page_home_v2_volunteer",
+          "subType": "home",
+          "clientVersion": 2,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 10,
+          "name": "portal_page_profile_volunteer",
+          "subType": "profile",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        },
+        {
+          "id": 9,
+          "name": "portal_page_toc_volunteer",
+          "subType": "toc",
+          "clientVersion": 1,
+          "criteria": {
+            "rootOrg": "*"
+          }
+        }
+      ]
+    }
+  }
+}

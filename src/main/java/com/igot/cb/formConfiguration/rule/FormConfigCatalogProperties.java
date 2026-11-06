@@ -23,8 +23,8 @@ import java.util.Map;
 public class FormConfigCatalogProperties {
     /** criteria keys in evaluation order, most significant first */
     private List<String> rulePriority = new ArrayList<>();
-    /** criteria key → path in the user-read response (result.response) */
-    private Map<String, String> userFields = new LinkedHashMap<>();
+    /** criteria key → ordered list of candidate paths in the user-read response (result.response); first non-empty value wins */
+    private Map<String, List<String>> userFields = new LinkedHashMap<>();
     /** criteria key → ordered list of values, most preferred first */
     private Map<String, List<String>> valuePriority = new LinkedHashMap<>();
 }

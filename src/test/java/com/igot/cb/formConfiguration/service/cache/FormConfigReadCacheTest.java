@@ -47,7 +47,7 @@ class FormConfigReadCacheTest {
         ReflectionTestUtils.setField(readCache, "maxForms", 500L);
         readCache.init();
         catalogProperties.setRulePriority(List.of("rootOrg", "designation", "ministryOrStateType"));
-        catalogProperties.setUserFields(Map.of("rootOrg", "rootOrgId"));
+        catalogProperties.setUserFields(Map.of("rootOrg", List.of("rootOrgId")));
     }
 
     private FormConfigurationSummary row(long id, String subtype, String portal, double version, Map<String, Object> criteria) {
