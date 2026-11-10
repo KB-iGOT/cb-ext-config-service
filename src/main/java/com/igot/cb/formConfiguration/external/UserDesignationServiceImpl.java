@@ -29,6 +29,9 @@ public class UserDesignationServiceImpl implements UserDesignationService {
     @Autowired
     private RestTemplate restTemplate;
 
+    @Autowired
+    private SharedUserOrgCache sharedUserOrgCache;
+
     private static PropertiesCache cache = PropertiesCache.getInstance();
     private static final String userReadEndpoint = cache.getProperty(Constants.LMS_SER_HOST)+Constants.USER_READ_BASE_URL;
 
@@ -38,6 +41,13 @@ public class UserDesignationServiceImpl implements UserDesignationService {
         userDetails.setDesignations(List.of());
         String userId = userDetails.getUserId();
         if (StringUtils.isBlank(userId)) {
+            return;
+        }
+        // Shared cache owned by lms (userprofile:{userId}/info) first; the lms user-read API only on a miss.
+        List<String> cached = sharedUserOrgCache.getUserDesignations(userId);
+        if (cached != null) {
+            log.debug("UserDesignationServiceImpl: designations for {} served from shared cache", userId);
+            userDetails.setDesignations(cached);
             return;
         }
         try {

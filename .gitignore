@@ -104,3 +104,5 @@ target/surefire-reports/TEST-com.igot.cb.formConfiguration.service.Validation.Va
 target/surefire-reports/com.igot.cb.formConfiguration.service.cache.FormConfigReadCacheTest.txt
 target/surefire-reports/TEST-com.igot.cb.formConfiguration.service.cache.FormConfigReadCacheTest.xml
 target/test-classes/com/igot/cb/formConfiguration/service/cache/FormConfigReadCacheTest.class
+target/classes/com/igot/cb/formConfiguration/external/SharedUserOrgCache.class
+target/classes/com/igot/cb/formConfiguration/external/SharedUserOrgCache$1.class
