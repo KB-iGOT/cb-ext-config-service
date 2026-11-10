@@ -43,6 +43,9 @@ public class OrgReadServiceImpl implements OrgReadService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private SharedUserOrgCache sharedUserOrgCache;
+
     private static PropertiesCache cache = PropertiesCache.getInstance();
     private static final String orgServiceEndpoint = cache.getProperty(Constants.LMS_SER_HOST)+Constants.ORG_READ_BASE_URL;
 
@@ -50,6 +53,13 @@ public class OrgReadServiceImpl implements OrgReadService {
     public String getMinistryOrStateType(String rootOrgId, String token) {
         if (StringUtils.isBlank(rootOrgId) || "*".equals(rootOrgId)) {
             return null;
+        }
+        // Raw organisation row cached by lms (org:{orgId}); same resolution rule as the API response.
+        Map<String, Object> sharedOrg = sharedUserOrgCache.getOrg(rootOrgId);
+        if (sharedOrg != null) {
+            return resolveMinistryOrStateType(
+                    asText(SharedUserOrgCache.findIgnoreCase(sharedOrg, Constants.MINISTRY_OR_STATE_TYPE)),
+                    asText(SharedUserOrgCache.findIgnoreCase(sharedOrg, Constants.SB_ORG_TYPE)));
         }
         String cacheKey = CACHE_KEY_PREFIX + rootOrgId;
         String cached = cacheService.getCache(cacheKey);
@@ -98,7 +108,15 @@ public class OrgReadServiceImpl implements OrgReadService {
 
         JsonNode value = responseNode.path(Constants.MINISTRY_OR_STATE_TYPE);
         String ministryOrStateType = value.isMissingNode() || value.isNull() ? null : value.asText(null);
+        return resolveMinistryOrStateType(ministryOrStateType, sbOrgType);
+    }
 
+    private static String asText(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    /** Ministry first, then state; a non-standard ministryOrStateType such as "SPV" falls back to sbOrgType. */
+    private String resolveMinistryOrStateType(String ministryOrStateType, String sbOrgType) {
         if (StringUtils.isNotBlank(ministryOrStateType)
                 && !"SPV".equalsIgnoreCase(ministryOrStateType)
                 && (Constants.MINISTRY.equalsIgnoreCase(ministryOrStateType) || Constants.STATE.equalsIgnoreCase(ministryOrStateType))) {
