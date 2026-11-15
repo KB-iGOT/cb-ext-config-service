@@ -24,13 +24,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * Two-tier read cache for the user-independent reads.
  *
  * Catalogue: in-memory (Caffeine) → Redis ({@link Constants#FORM_CONFIG_CATALOG_CACHE_KEY}) → DB.
  * Redis is consulted only on an in-memory miss, so steady-state reads never leave the JVM.
- * Read-by-id: in-memory → DB (a primary-key lookup; no Redis tier).
+ * Read-by-id (non-admin result only): in-memory → Redis ({@link Constants#FORM_CONFIG_READ_CACHE_KEY}.id) → DB.
+ * The finished result map is cached, so a hit does no entity mapping. Admin reads bypass this cache.
  *
  * Eviction ({@link #evictCatalog()} / {@link #evictForm(long)}) clears memory AND Redis, so the
  * next read is served fresh from the DB. The TTL bounds staleness on a pod that misses the
@@ -60,8 +62,11 @@ public class FormConfigReadCache {
     @Value("${form.config.local-cache.max-forms:500}")
     private long maxForms;
 
+    @Value("${form.config.read-cache.redis-ttl-seconds:7200}")
+    private long formRedisTtlSeconds;
+
     private Cache<String, Map<String, Object>> catalogCache;
-    private Cache<Long, Optional<FormConfigurationEntity>> formCache;
+    private Cache<Long, Map<String, Object>> formCache;
 
     @PostConstruct
     void init() {
@@ -99,8 +104,13 @@ public class FormConfigReadCache {
         return slice;
     }
 
-    public Optional<FormConfigurationEntity> getById(long formId) {
-        return formCache.get(formId, formConfigurationRepository::findById);
+    /**
+     * The non-admin read-by-id result for a form, or {@code null} when the form does not exist
+     * (a miss is not cached). {@code resultBuilder} runs only when the row is read from the DB.
+     * The returned map is shared across requests: copy it, do not modify it.
+     */
+    public Map<String, Object> getFormResult(long formId, Function<FormConfigurationEntity, Map<String, Object>> resultBuilder) {
+        return formCache.get(formId, id -> loadFormResult(id, resultBuilder));
     }
 
     /** Writer side: drops the catalogue from memory and Redis; the next {@link #getCatalog()} rebuilds it from the DB. */
@@ -116,10 +126,41 @@ public class FormConfigReadCache {
         log.debug("FormConfigReadCache: catalogue evicted from memory");
     }
 
-    /** Drops one form from memory; the next {@link #getById(long)} reads it from the DB. */
+    /** Writer side: drops one form from memory and Redis; the next {@link #getFormResult} reads it from the DB. */
     public void evictForm(long formId) {
         formCache.invalidate(formId);
+        cacheService.deleteCache(formKey(formId));
+        log.debug("FormConfigReadCache: form {} evicted from memory and Redis", formId);
+    }
+
+    /** Receiver side (pub/sub): the writer already cleared Redis, so only this pod's memory is dropped. */
+    public void evictFormFromMemory(long formId) {
+        formCache.invalidate(formId);
         log.debug("FormConfigReadCache: form {} evicted from memory", formId);
+    }
+
+    private static String formKey(long formId) {
+        return Constants.FORM_CONFIG_READ_CACHE_KEY + Constants.DOT_SEPARATOR + formId;
+    }
+
+    /** In-memory miss: try Redis (another pod may have built it), else build from the DB and share via Redis. */
+    private Map<String, Object> loadFormResult(long formId, Function<FormConfigurationEntity, Map<String, Object>> resultBuilder) {
+        String key = formKey(formId);
+        String cached = cacheService.getCache(key);
+        if (cached != null) {
+            try {
+                return objectMapper.readValue(cached, new TypeReference<Map<String, Object>>() {});
+            } catch (Exception e) {
+                log.warn("FormConfigReadCache: failed to deserialize cached form {}, rebuilding: {}", formId, e.getMessage());
+            }
+        }
+        Optional<FormConfigurationEntity> entity = formConfigurationRepository.findById(formId);
+        if (entity.isEmpty()) {
+            return null;
+        }
+        Map<String, Object> result = resultBuilder.apply(entity.get());
+        cacheService.putCache(key, result, formRedisTtlSeconds);
+        return result;
     }
 
     /** In-memory miss: try Redis (another pod may have built it), else build from the DB and share via Redis. */

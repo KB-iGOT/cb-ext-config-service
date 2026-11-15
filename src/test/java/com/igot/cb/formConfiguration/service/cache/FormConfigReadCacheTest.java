@@ -2,6 +2,7 @@ package com.igot.cb.formConfiguration.service.cache;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.igot.cb.formConfiguration.entity.FormConfigurationEntity;
 import com.igot.cb.formConfiguration.repository.FormConfigurationRepository;
 import com.igot.cb.formConfiguration.repository.FormConfigurationSummary;
 import com.igot.cb.formConfiguration.rule.FormConfigCatalogProperties;
@@ -17,8 +18,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -45,6 +49,7 @@ class FormConfigReadCacheTest {
     void setup() {
         ReflectionTestUtils.setField(readCache, "ttlSeconds", 300L);
         ReflectionTestUtils.setField(readCache, "maxForms", 500L);
+        ReflectionTestUtils.setField(readCache, "formRedisTtlSeconds", 7200L);
         readCache.init();
         catalogProperties.setRulePriority(List.of("rootOrg", "designation", "ministryOrStateType"));
         catalogProperties.setUserFields(Map.of("rootOrg", List.of("rootOrgId")));
@@ -165,5 +170,82 @@ class FormConfigReadCacheTest {
 
         verify(cacheService, never()).deleteCache(anyString());
         verify(cacheService, times(2)).getCache(anyString());
+    }
+
+    private static final String FORM_KEY = Constants.FORM_CONFIG_READ_CACHE_KEY + ".7";
+
+    private FormConfigurationEntity form(long id) {
+        FormConfigurationEntity e = new FormConfigurationEntity();
+        e.setId(id);
+        e.setName("form-" + id);
+        return e;
+    }
+
+    private Map<String, Object> result(FormConfigurationEntity e) {
+        return Map.of(Constants.NAME, e.getName());
+    }
+
+    @Test
+    void formMiss_readsDb_buildsResult_andWritesRedisWithFormTtl() {
+        when(cacheService.getCache(FORM_KEY)).thenReturn(null);
+        when(repository.findById(7L)).thenReturn(Optional.of(form(7)));
+
+        Map<String, Object> first = readCache.getFormResult(7L, this::result);
+        Map<String, Object> second = readCache.getFormResult(7L, this::result);
+
+        assertEquals(Map.of(Constants.NAME, "form-7"), first);
+        assertSame(first, second);
+        verify(repository, times(1)).findById(7L);
+        verify(cacheService, times(1)).getCache(FORM_KEY);
+        verify(cacheService).putCache(FORM_KEY, first, 7200L);
+    }
+
+    @Test
+    void formMemoryMiss_readsRedisBeforeDb_withoutBuilding() {
+        when(cacheService.getCache(FORM_KEY)).thenReturn("{\"name\":\"from-redis\"}");
+
+        Map<String, Object> result = readCache.getFormResult(7L, e -> fail("builder must not run on a Redis hit"));
+
+        assertEquals("from-redis", result.get(Constants.NAME));
+        verifyNoInteractions(repository);
+        verify(cacheService, never()).putCache(anyString(), any(), anyLong());
+    }
+
+    @Test
+    void formNotFound_returnsNull_andIsNotCached() {
+        when(cacheService.getCache(FORM_KEY)).thenReturn(null);
+        when(repository.findById(7L)).thenReturn(Optional.empty());
+
+        assertNull(readCache.getFormResult(7L, this::result));
+        assertNull(readCache.getFormResult(7L, this::result));
+
+        verify(repository, times(2)).findById(7L);
+        verify(cacheService, never()).putCache(anyString(), any(), anyLong());
+    }
+
+    @Test
+    void evictForm_clearsMemoryAndRedis_thenReloadsFromDb() {
+        when(cacheService.getCache(FORM_KEY)).thenReturn(null);
+        when(repository.findById(7L)).thenReturn(Optional.of(form(7)));
+
+        readCache.getFormResult(7L, this::result);
+        readCache.evictForm(7L);
+        readCache.getFormResult(7L, this::result);
+
+        verify(cacheService).deleteCache(FORM_KEY);
+        verify(repository, times(2)).findById(7L);
+    }
+
+    @Test
+    void evictFormFromMemory_doesNotTouchRedis() {
+        when(cacheService.getCache(FORM_KEY)).thenReturn(null);
+        when(repository.findById(7L)).thenReturn(Optional.of(form(7)));
+
+        readCache.getFormResult(7L, this::result);
+        readCache.evictFormFromMemory(7L);
+        readCache.getFormResult(7L, this::result);
+
+        verify(cacheService, never()).deleteCache(anyString());
+        verify(cacheService, times(2)).getCache(FORM_KEY);
     }
 }

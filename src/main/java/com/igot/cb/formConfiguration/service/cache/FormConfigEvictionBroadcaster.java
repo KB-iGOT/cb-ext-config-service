@@ -44,7 +44,7 @@ public class FormConfigEvictionBroadcaster {
         publish(MSG_CATALOG);
     }
 
-    /** A form was updated: that form and the catalogue are stale on every pod. Call after the DB write and the Redis delete. */
+    /** A form was updated: that form and the catalogue are stale on every pod. Call after the DB write: clears memory + Redis here, then publishes so every other pod drops its memory copy. */
     public void formUpdated(long formId) {
         readCache.evictCatalog();
         readCache.evictForm(formId);
@@ -70,7 +70,7 @@ public class FormConfigEvictionBroadcaster {
             try {
                 long formId = Long.parseLong(body.substring(MSG_FORM_PREFIX.length()));
                 readCache.evictCatalogFromMemory();
-                readCache.evictForm(formId);
+                readCache.evictFormFromMemory(formId);
                 log.info("FormConfigEvictionBroadcaster: evicted local catalogue and form {}", formId);
                 return;
             } catch (NumberFormatException ignored) {

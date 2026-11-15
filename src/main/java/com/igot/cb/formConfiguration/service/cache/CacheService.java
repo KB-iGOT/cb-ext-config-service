@@ -29,9 +29,13 @@ public class CacheService {
 
 
     public void putCache(String key, Object object) {
+        putCache(key, object, cacheTtl);
+    }
+
+    public void putCache(String key, Object object, long ttlSeconds) {
         try {
             String data = objectMapper.writeValueAsString(object);
-            redisTemplate.opsForValue().set(key, data, cacheTtl, TimeUnit.SECONDS);
+            redisTemplate.opsForValue().set(key, data, ttlSeconds, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error("Error while putting data in Redis cache: {} ", e.getMessage());
         }

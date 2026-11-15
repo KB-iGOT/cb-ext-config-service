@@ -128,6 +128,7 @@ public interface Constants {
     public static final String SUB = "sub";
     public static final String FORM_CONFIG_RESULT="form.config.result";
     public static final String FORM_CONFIG_CATALOG_CACHE_KEY = "form.config.catalog";
+    public static final String FORM_CONFIG_READ_CACHE_KEY = "form.config.read";
     public static final String READ_FORM_DETAILS_API = "api.form.readFormDetails";
     public static final String RULE_PRIORITY = "rulePriority";
     public static final String USER_FIELDS = "userFields";

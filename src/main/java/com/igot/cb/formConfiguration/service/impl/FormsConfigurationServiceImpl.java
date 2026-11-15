@@ -449,17 +449,23 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
                 return response;
             }
 
-            Optional<FormConfigurationEntity> entityOpt = readCache.getById(formId);
-            if (entityOpt.isEmpty()) {
+            Map<String, Object> result;
+            if (isAdmin) {
+                // admin always reads Postgres directly: never served from, or written to, the cache
+                result = formConfigurationRepository.findById(formId).map(e -> buildResult(e, true)).orElse(null);
+            } else {
+                // memory -> Redis -> Postgres; the cached value is the finished non-admin result
+                result = readCache.getFormResult(formId, e -> buildResult(e, false));
+            }
+            if (result == null) {
                 response.getParams().setStatus(Constants.FAILED);
                 response.getParams().setErrMsg("Form configuration not found for id: " + formId);
                 response.setResponseCode(HttpStatus.NOT_FOUND);
                 return response;
             }
 
-            Map<String, Object> result = buildResult(entityOpt.get(), isAdmin);
-            response.put(Constants.CREATED_ON, entityOpt.get().getCreatedAt());
-            response.setResult(result);
+            // copy: the cached map is shared across requests
+            response.setResult(new HashMap<>(result));
             response.setResponseCode(HttpStatus.OK);
             response.getParams().setStatus(Constants.SUCCESSFUL);
         } catch (Exception e) {
@@ -569,7 +575,7 @@ public class FormsConfigurationServiceImpl implements FormsConfigurationService 
             // ...); invalidate under the old tuple (covers the common case of criteria/data changing
             // in place) and, if any of those four fields changed, also under the new tuple.
             invalidateFormConfigCache(oldType, oldSubtype, oldPortal, oldClientVersion);
-            // clears the catalogue (memory + Redis) and this form (memory) on this pod and, via pub/sub, on every other pod
+            // clears the catalogue and this form (memory + Redis) on this pod and, via pub/sub, from memory on every other pod
             evictionBroadcaster.formUpdated(originalData.getId());
             if (!Objects.equals(oldType, originalData.getType()) || !Objects.equals(oldSubtype, originalData.getSubtype())
                     || !Objects.equals(oldPortal, originalData.getPortal()) || !Objects.equals(oldClientVersion, originalData.getClientVersion())) {

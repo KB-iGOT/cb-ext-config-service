@@ -77,7 +77,7 @@ public class AccessTokenValidator {
             Map<String, Object> tokenBody = mapper.readValue(new String(decodeFromBase64(body)), new TypeReference<Map<String, Object>>() {
             });
             if (isExpired((Integer) tokenBody.get("exp"))) {
-                logger.error("Token expired: {}", token);
+                logger.error("Token expired");
                 return Collections.emptyMap();
             }
             return tokenBody;

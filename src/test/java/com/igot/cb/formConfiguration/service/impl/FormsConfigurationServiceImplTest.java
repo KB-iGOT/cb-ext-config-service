@@ -28,6 +28,7 @@ import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -342,34 +343,49 @@ class FormsConfigurationServiceImplTest {
     @Test
     void readFormConfigById_success() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(readCache.getById(1L)).thenReturn(Optional.of(entity()));
+        Map<String, Object> cached = Map.of(Constants.NAME, "form-1");
+        when(readCache.getFormResult(eq(1L), any())).thenReturn(cached);
 
         ApiResponse response = service.readFormConfigById(1L, "token", false);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
-        assertFalse(((Map<String, Object>) response.getResult()).containsKey(Constants.CRITERIA));
+        assertEquals(cached, response.getResult());
+        assertNotSame(cached, response.getResult());
+        verify(repository, never()).findById(anyLong());
     }
 
     @Test
     void readFormConfigById_admin_includesCriteria() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(readCache.getById(1L)).thenReturn(Optional.of(entity()));
+        when(repository.findById(1L)).thenReturn(Optional.of(entity()));
         when(objectMapper.convertValue(any(), eq(Map.class))).thenReturn(new HashMap<>());
 
         ApiResponse response = service.readFormConfigById(1L, "token", true);
 
         assertEquals(HttpStatus.OK, response.getResponseCode());
         assertTrue(((Map<String, Object>) response.getResult()).containsKey(Constants.CRITERIA));
+        verifyNoInteractions(readCache);
     }
 
     @Test
     void readFormConfigById_notFound() {
         when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
-        when(readCache.getById(1L)).thenReturn(Optional.empty());
+        when(readCache.getFormResult(eq(1L), any())).thenReturn(null);
 
         ApiResponse response = service.readFormConfigById(1L, "token", false);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+    }
+
+    @Test
+    void readFormConfigById_admin_notFound() {
+        when(accessTokenValidator.fetchUserDetailsFromToken("token")).thenReturn(userDetails);
+        when(repository.findById(1L)).thenReturn(Optional.empty());
+
+        ApiResponse response = service.readFormConfigById(1L, "token", true);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getResponseCode());
+        verifyNoInteractions(readCache);
     }
 
     @Test
